@@ -1,0 +1,12 @@
+.venv/
+.local-settings.json
+work/
+build/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.log
+gephi3d-token
+config.toml
+*.gephi
+*.scene.json
