@@ -1,0 +1,48 @@
+{
+  "release": "v0.1.0-alpha",
+  "date": "2026-10-21",
+  "status": "passed",
+  "platform": "Windows 11 / Gephi 0.11.3 / Java 17 / Python 3.12",
+  "automated_tests": {
+    "passed": 9,
+    "failed": 0,
+    "live_gephi_explicitly_enabled": true,
+    "default_live_skipped": true
+  },
+  "clean_install": {
+    "fresh_venv_and_downloaded_dependencies": true,
+    "chinese_and_space_path": true,
+    "dry_run_left_configuration_unchanged": true,
+    "idempotent_configuration": true,
+    "unrelated_configuration_preserved": true,
+    "dependency_check": "passed",
+    "installed_launcher_cold_start": true,
+    "authenticated_reuse_same_process": true
+  },
+  "live_scenarios": [
+    "60 nodes, 240 edges, 3 communities",
+    "3D force layout",
+    "node n12 search and focus",
+    "two-hop neighborhood compared with NetworkX",
+    "three Z layers and Chinese bookmark",
+    "project save/reopen state comparison",
+    "24 MCP tools, typed search",
+    "6000x4000 PNG and PDF"
+  ],
+  "build": {
+    "java_bytecode": 17,
+    "nbm_sha256": "77df279ad3d1be12a6e5e7528472f34fc727a57ef3333f1969a77eee392a69a6",
+    "identical_rebuild_in_chinese_space_path": true
+  },
+  "limitations": [
+    "Only Windows and Gephi 0.11.3 tested",
+    "UI drag details and long-running cross-driver stability remain Alpha limits",
+    "Historical performance figure is not a sustained-interaction guarantee"
+  ],
+  "packaging": {
+    "explicit_allowlist": true,
+    "local_links_checked": true,
+    "no_personal_paths_or_credentials": true,
+    "original_development_sources_unchanged": true
+  }
+}

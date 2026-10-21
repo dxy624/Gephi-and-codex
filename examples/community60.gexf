@@ -1,0 +1,796 @@
+<?xml version='1.0' encoding='utf-8'?>
+<gexf xmlns:viz="http://www.gexf.net/1.2draft/viz" xmlns="http://www.gexf.net/1.2draft" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.gexf.net/1.2draft http://www.gexf.net/1.2draft/gexf.xsd" version="1.2">
+  <meta lastmodifieddate="2026-10-21">
+    <creator>NetworkX 3.7</creator>
+  </meta>
+  <graph defaultedgetype="undirected" mode="static" name="">
+    <attributes mode="static" class="node">
+      <attribute id="0" title="community" type="string" />
+      <attribute id="1" title="synthetic" type="boolean" />
+    </attributes>
+    <nodes>
+      <node id="n1" label="节点 1">
+        <viz:color r="230" g="80" b="80" a="1.0" />
+        <viz:size value="10.291502622129181" />
+        <viz:position x="544.1565667442633" y="-31.041811383604017" z="82.65507881070693" />
+        <attvalues>
+          <attvalue for="0" value="群体 1" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n2" label="节点 2">
+        <viz:color r="80" g="230" b="80" a="1.0" />
+        <viz:size value="11.6332495807108" />
+        <viz:position x="-353.20308912939146" y="260.0537635867175" z="-2.311382021798241" />
+        <attvalues>
+          <attvalue for="0" value="群体 2" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n3" label="节点 3">
+        <viz:color r="80" g="80" b="230" a="1.0" />
+        <viz:size value="9.898979485566356" />
+        <viz:position x="-441.9765204894239" y="-248.19336520515128" z="-103.93268704947829" />
+        <attvalues>
+          <attvalue for="0" value="群体 3" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n4" label="节点 4">
+        <viz:color r="230" g="80" b="80" a="1.0" />
+        <viz:size value="9.47213595499958" />
+        <viz:position x="383.3780701352615" y="373.29726119394974" z="515.407398645015" />
+        <attvalues>
+          <attvalue for="0" value="群体 1" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n5" label="节点 5">
+        <viz:color r="80" g="230" b="80" a="1.0" />
+        <viz:size value="11.6332495807108" />
+        <viz:position x="-328.84956381089495" y="129.42782658703226" z="-224.30731215614384" />
+        <attvalues>
+          <attvalue for="0" value="群体 2" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n6" label="节点 6">
+        <viz:color r="80" g="80" b="230" a="1.0" />
+        <viz:size value="11.32455532033676" />
+        <viz:position x="-233.88284203711126" y="-241.3759358516" z="36.97741205126228" />
+        <attvalues>
+          <attvalue for="0" value="群体 3" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n7" label="节点 7">
+        <viz:color r="230" g="80" b="80" a="1.0" />
+        <viz:size value="11.32455532033676" />
+        <viz:position x="448.3254048300015" y="195.4854135388785" z="91.31002879130148" />
+        <attvalues>
+          <attvalue for="0" value="群体 1" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n8" label="节点 8">
+        <viz:color r="80" g="230" b="80" a="1.0" />
+        <viz:size value="11.32455532033676" />
+        <viz:position x="-143.1255472182701" y="137.18424303082327" z="-223.01971486254968" />
+        <attvalues>
+          <attvalue for="0" value="群体 2" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n9" label="节点 9">
+        <viz:color r="80" g="80" b="230" a="1.0" />
+        <viz:size value="11.0" />
+        <viz:position x="-246.68315800968873" y="-477.68152289873547" z="50.34490781138896" />
+        <attvalues>
+          <attvalue for="0" value="群体 3" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n10" label="节点 10">
+        <viz:color r="230" g="80" b="80" a="1.0" />
+        <viz:size value="10.291502622129181" />
+        <viz:position x="421.3378901383913" y="420.6162630653099" z="115.4354450329269" />
+        <attvalues>
+          <attvalue for="0" value="群体 1" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n11" label="节点 11">
+        <viz:color r="80" g="230" b="80" a="1.0" />
+        <viz:size value="10.65685424949238" />
+        <viz:position x="52.83493544130313" y="376.6555940264896" z="233.60156463083055" />
+        <attvalues>
+          <attvalue for="0" value="群体 2" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n12" label="节点 12">
+        <viz:color r="80" g="80" b="230" a="1.0" />
+        <viz:size value="12.21110255092798" />
+        <viz:position x="111.76334304801136" y="-229.45734460424922" z="170.56274391012127" />
+        <attvalues>
+          <attvalue for="0" value="群体 3" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n13" label="节点 13">
+        <viz:color r="230" g="80" b="80" a="1.0" />
+        <viz:size value="10.65685424949238" />
+        <viz:position x="165.45179277628483" y="-290.5565985698156" z="-9.034648332333143" />
+        <attvalues>
+          <attvalue for="0" value="群体 1" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n14" label="节点 14">
+        <viz:color r="80" g="230" b="80" a="1.0" />
+        <viz:size value="11.6332495807108" />
+        <viz:position x="-194.86950672424067" y="324.17991548883026" z="45.277289864198806" />
+        <attvalues>
+          <attvalue for="0" value="群体 2" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n15" label="节点 15">
+        <viz:color r="80" g="80" b="230" a="1.0" />
+        <viz:size value="10.291502622129181" />
+        <viz:position x="205.36632722341722" y="-37.61361534896609" z="462.74932128744064" />
+        <attvalues>
+          <attvalue for="0" value="群体 3" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n16" label="节点 16">
+        <viz:color r="230" g="80" b="80" a="1.0" />
+        <viz:size value="10.291502622129181" />
+        <viz:position x="18.15008083102851" y="11.267007248753778" z="-143.77641036359697" />
+        <attvalues>
+          <attvalue for="0" value="群体 1" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n17" label="节点 17">
+        <viz:color r="80" g="230" b="80" a="1.0" />
+        <viz:size value="9.898979485566356" />
+        <viz:position x="43.80853877407462" y="605.349339208484" z="400.74658077793345" />
+        <attvalues>
+          <attvalue for="0" value="群体 2" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n18" label="节点 18">
+        <viz:color r="80" g="80" b="230" a="1.0" />
+        <viz:size value="10.65685424949238" />
+        <viz:position x="-251.93973770448605" y="-424.67423584494287" z="-179.4561501981" />
+        <attvalues>
+          <attvalue for="0" value="群体 3" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n19" label="节点 19">
+        <viz:color r="230" g="80" b="80" a="1.0" />
+        <viz:size value="10.291502622129181" />
+        <viz:position x="-116.81450571805193" y="-239.85367902225298" z="-296.19212772946787" />
+        <attvalues>
+          <attvalue for="0" value="群体 1" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n20" label="节点 20">
+        <viz:color r="80" g="230" b="80" a="1.0" />
+        <viz:size value="10.65685424949238" />
+        <viz:position x="-444.60348846356845" y="141.43703041483982" z="-196.4204184436041" />
+        <attvalues>
+          <attvalue for="0" value="群体 2" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n21" label="节点 21">
+        <viz:color r="80" g="80" b="230" a="1.0" />
+        <viz:size value="11.0" />
+        <viz:position x="12.743972927817252" y="-309.730421430771" z="-160.9706323237128" />
+        <attvalues>
+          <attvalue for="0" value="群体 3" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n22" label="节点 22">
+        <viz:color r="230" g="80" b="80" a="1.0" />
+        <viz:size value="11.32455532033676" />
+        <viz:position x="-90.07713502543662" y="21.335992773290066" z="125.10433939856578" />
+        <attvalues>
+          <attvalue for="0" value="群体 1" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n23" label="节点 23">
+        <viz:color r="80" g="230" b="80" a="1.0" />
+        <viz:size value="10.291502622129181" />
+        <viz:position x="61.883692687721975" y="723.3550552539647" z="82.50807997337631" />
+        <attvalues>
+          <attvalue for="0" value="群体 2" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n24" label="节点 24">
+        <viz:color r="80" g="80" b="230" a="1.0" />
+        <viz:size value="9.47213595499958" />
+        <viz:position x="-530.4115334328594" y="-322.40190983179184" z="127.42381657252821" />
+        <attvalues>
+          <attvalue for="0" value="群体 3" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n25" label="节点 25">
+        <viz:color r="230" g="80" b="80" a="1.0" />
+        <viz:size value="11.0" />
+        <viz:position x="303.8179051228238" y="311.43384891658087" z="-158.50770835418456" />
+        <attvalues>
+          <attvalue for="0" value="群体 1" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n26" label="节点 26">
+        <viz:color r="80" g="230" b="80" a="1.0" />
+        <viz:size value="10.65685424949238" />
+        <viz:position x="-319.3683072120688" y="524.0109681918279" z="-30.232299372262688" />
+        <attvalues>
+          <attvalue for="0" value="群体 2" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n27" label="节点 27">
+        <viz:color r="80" g="80" b="230" a="1.0" />
+        <viz:size value="9.47213595499958" />
+        <viz:position x="105.25070717578053" y="-250.4889173219497" z="-554.9701900517006" />
+        <attvalues>
+          <attvalue for="0" value="群体 3" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n28" label="节点 28">
+        <viz:color r="230" g="80" b="80" a="1.0" />
+        <viz:size value="10.65685424949238" />
+        <viz:position x="268.74443542108816" y="2.7248218283110437" z="-203.0591722622795" />
+        <attvalues>
+          <attvalue for="0" value="群体 1" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n29" label="节点 29">
+        <viz:color r="80" g="230" b="80" a="1.0" />
+        <viz:size value="11.32455532033676" />
+        <viz:position x="-187.87547687499003" y="401.026288653677" z="136.9079835941269" />
+        <attvalues>
+          <attvalue for="0" value="群体 2" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n30" label="节点 30">
+        <viz:color r="80" g="80" b="230" a="1.0" />
+        <viz:size value="10.291502622129181" />
+        <viz:position x="-201.06211748190916" y="-205.40717387680021" z="275.35290863196167" />
+        <attvalues>
+          <attvalue for="0" value="群体 3" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n31" label="节点 31">
+        <viz:color r="230" g="80" b="80" a="1.0" />
+        <viz:size value="10.65685424949238" />
+        <viz:position x="157.60603425745887" y="-180.21839828346216" z="-69.22625985363608" />
+        <attvalues>
+          <attvalue for="0" value="群体 1" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n32" label="节点 32">
+        <viz:color r="80" g="230" b="80" a="1.0" />
+        <viz:size value="10.291502622129181" />
+        <viz:position x="143.84288565111618" y="280.1454881143315" z="431.70827151543625" />
+        <attvalues>
+          <attvalue for="0" value="群体 2" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n33" label="节点 33">
+        <viz:color r="80" g="80" b="230" a="1.0" />
+        <viz:size value="11.32455532033676" />
+        <viz:position x="106.82679543318234" y="-304.9733009389154" z="-232.19358821277973" />
+        <attvalues>
+          <attvalue for="0" value="群体 3" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n34" label="节点 34">
+        <viz:color r="230" g="80" b="80" a="1.0" />
+        <viz:size value="11.6332495807108" />
+        <viz:position x="310.9179647485998" y="50.8705003337488" z="182.36766022482323" />
+        <attvalues>
+          <attvalue for="0" value="群体 1" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n35" label="节点 35">
+        <viz:color r="80" g="230" b="80" a="1.0" />
+        <viz:size value="10.291502622129181" />
+        <viz:position x="-283.90312852740794" y="589.3932695398893" z="-159.30976433287708" />
+        <attvalues>
+          <attvalue for="0" value="群体 2" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n36" label="节点 36">
+        <viz:color r="80" g="80" b="230" a="1.0" />
+        <viz:size value="11.6332495807108" />
+        <viz:position x="-118.77538518821453" y="-107.81278565276827" z="154.9860804446766" />
+        <attvalues>
+          <attvalue for="0" value="群体 3" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n37" label="节点 37">
+        <viz:color r="230" g="80" b="80" a="1.0" />
+        <viz:size value="10.291502622129181" />
+        <viz:position x="150.5986061568284" y="211.12918113820857" z="159.81217153518776" />
+        <attvalues>
+          <attvalue for="0" value="群体 1" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n38" label="节点 38">
+        <viz:color r="80" g="230" b="80" a="1.0" />
+        <viz:size value="11.6332495807108" />
+        <viz:position x="-8.53163109954766" y="482.03167656224394" z="-86.49708064316349" />
+        <attvalues>
+          <attvalue for="0" value="群体 2" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n39" label="节点 39">
+        <viz:color r="80" g="80" b="230" a="1.0" />
+        <viz:size value="11.32455532033676" />
+        <viz:position x="-66.52035353324915" y="-424.5723339884114" z="62.84756098650218" />
+        <attvalues>
+          <attvalue for="0" value="群体 3" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n40" label="节点 40">
+        <viz:color r="230" g="80" b="80" a="1.0" />
+        <viz:size value="10.65685424949238" />
+        <viz:position x="420.6282974195225" y="1.221914707655713" z="235.36520392185554" />
+        <attvalues>
+          <attvalue for="0" value="群体 1" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n41" label="节点 41">
+        <viz:color r="80" g="230" b="80" a="1.0" />
+        <viz:size value="10.291502622129181" />
+        <viz:position x="-30.548153826897174" y="599.9331776131411" z="-111.13540943511798" />
+        <attvalues>
+          <attvalue for="0" value="群体 2" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n42" label="节点 42">
+        <viz:color r="80" g="80" b="230" a="1.0" />
+        <viz:size value="9.898979485566356" />
+        <viz:position x="-110.55501132350412" y="-506.55050760651307" z="335.6887054200276" />
+        <attvalues>
+          <attvalue for="0" value="群体 3" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n43" label="节点 43">
+        <viz:color r="230" g="80" b="80" a="1.0" />
+        <viz:size value="11.6332495807108" />
+        <viz:position x="229.46631619729752" y="127.68514673846518" z="6.3489064563477084" />
+        <attvalues>
+          <attvalue for="0" value="群体 1" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n44" label="节点 44">
+        <viz:color r="80" g="230" b="80" a="1.0" />
+        <viz:size value="9.47213595499958" />
+        <viz:position x="-273.9154496183157" y="-67.21302376643881" z="-394.5336394667669" />
+        <attvalues>
+          <attvalue for="0" value="群体 2" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n45" label="节点 45">
+        <viz:color r="80" g="80" b="230" a="1.0" />
+        <viz:size value="9.47213595499958" />
+        <viz:position x="93.66870168831694" y="-447.71436249372664" z="-470.80503431033287" />
+        <attvalues>
+          <attvalue for="0" value="群体 3" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n46" label="节点 46">
+        <viz:color r="230" g="80" b="80" a="1.0" />
+        <viz:size value="10.65685424949238" />
+        <viz:position x="156.2867554610183" y="213.9011857062402" z="-135.37041321296266" />
+        <attvalues>
+          <attvalue for="0" value="群体 1" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n47" label="节点 47">
+        <viz:color r="80" g="230" b="80" a="1.0" />
+        <viz:size value="10.291502622129181" />
+        <viz:position x="-555.3524523494735" y="117.25026510895621" z="-2.499916460041829" />
+        <attvalues>
+          <attvalue for="0" value="群体 2" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n48" label="节点 48">
+        <viz:color r="80" g="80" b="230" a="1.0" />
+        <viz:size value="9.47213595499958" />
+        <viz:position x="-149.94425388901033" y="-595.1232411541092" z="111.11661904267606" />
+        <attvalues>
+          <attvalue for="0" value="群体 3" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n49" label="节点 49">
+        <viz:color r="230" g="80" b="80" a="1.0" />
+        <viz:size value="11.928203230275509" />
+        <viz:position x="303.59779356415464" y="22.8961857547349" z="-26.255517819376184" />
+        <attvalues>
+          <attvalue for="0" value="群体 1" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n50" label="节点 50">
+        <viz:color r="80" g="230" b="80" a="1.0" />
+        <viz:size value="10.291502622129181" />
+        <viz:position x="84.27076326863384" y="464.1417943617605" z="136.65430925278085" />
+        <attvalues>
+          <attvalue for="0" value="群体 2" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n51" label="节点 51">
+        <viz:color r="80" g="80" b="230" a="1.0" />
+        <viz:size value="10.65685424949238" />
+        <viz:position x="-41.086528107175" y="-127.56714388413228" z="310.2590455281491" />
+        <attvalues>
+          <attvalue for="0" value="群体 3" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n52" label="节点 52">
+        <viz:color r="230" g="80" b="80" a="1.0" />
+        <viz:size value="10.291502622129181" />
+        <viz:position x="279.8150976228059" y="-375.3480239519464" z="-88.77191991453289" />
+        <attvalues>
+          <attvalue for="0" value="群体 1" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n53" label="节点 53">
+        <viz:color r="80" g="230" b="80" a="1.0" />
+        <viz:size value="11.32455532033676" />
+        <viz:position x="-98.22674015706717" y="304.16556067292214" z="125.63591788107955" />
+        <attvalues>
+          <attvalue for="0" value="群体 2" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n54" label="节点 54">
+        <viz:color r="80" g="80" b="230" a="1.0" />
+        <viz:size value="10.291502622129181" />
+        <viz:position x="0.35643259069867583" y="-616.208091215997" z="-33.10294358067062" />
+        <attvalues>
+          <attvalue for="0" value="群体 3" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n55" label="节点 55">
+        <viz:color r="230" g="80" b="80" a="1.0" />
+        <viz:size value="10.291502622129181" />
+        <viz:position x="340.8161847423317" y="-161.4373467457061" z="-293.0500523517274" />
+        <attvalues>
+          <attvalue for="0" value="群体 1" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n56" label="节点 56">
+        <viz:color r="80" g="230" b="80" a="1.0" />
+        <viz:size value="9.898979485566356" />
+        <viz:position x="-387.036585821122" y="506.4653114591161" z="97.41314678007122" />
+        <attvalues>
+          <attvalue for="0" value="群体 2" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n57" label="节点 57">
+        <viz:color r="80" g="80" b="230" a="1.0" />
+        <viz:size value="8.464101615137753" />
+        <viz:position x="-42.673050295177376" y="-116.59129345284066" z="675.6764533294012" />
+        <attvalues>
+          <attvalue for="0" value="群体 3" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n58" label="节点 58">
+        <viz:color r="230" g="80" b="80" a="1.0" />
+        <viz:size value="11.0" />
+        <viz:position x="94.8729322247937" y="-49.36313092610551" z="-272.3169678395372" />
+        <attvalues>
+          <attvalue for="0" value="群体 1" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n59" label="节点 59">
+        <viz:color r="80" g="230" b="80" a="1.0" />
+        <viz:size value="11.32455532033676" />
+        <viz:position x="-134.87001827084526" y="395.91780242596775" z="-141.2354863904856" />
+        <attvalues>
+          <attvalue for="0" value="群体 2" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+      <node id="n60" label="节点 60">
+        <viz:color r="80" g="80" b="230" a="1.0" />
+        <viz:size value="8.464101615137753" />
+        <viz:position x="366.04845035185326" y="-483.17039717361433" z="357.92736901580906" />
+        <attvalues>
+          <attvalue for="0" value="群体 3" />
+          <attvalue for="1" value="true" />
+        </attvalues>
+      </node>
+    </nodes>
+    <edges>
+      <edge source="n1" target="n15" id="0" weight="1.0" />
+      <edge source="n1" target="n10" id="1" weight="1.0" />
+      <edge source="n1" target="n55" id="2" weight="1.0" />
+      <edge source="n1" target="n34" id="3" weight="1.0" />
+      <edge source="n1" target="n7" id="4" weight="1.0" />
+      <edge source="n1" target="n52" id="5" weight="1.0" />
+      <edge source="n1" target="n49" id="6" weight="1.0" />
+      <edge source="n2" target="n20" id="7" weight="1.0" />
+      <edge source="n2" target="n5" id="8" weight="1.0" />
+      <edge source="n2" target="n14" id="9" weight="1.0" />
+      <edge source="n2" target="n29" id="10" weight="1.0" />
+      <edge source="n2" target="n26" id="11" weight="1.0" />
+      <edge source="n2" target="n59" id="12" weight="1.0" />
+      <edge source="n2" target="n53" id="13" weight="1.0" />
+      <edge source="n2" target="n8" id="14" weight="1.0" />
+      <edge source="n2" target="n6" id="15" weight="1.0" />
+      <edge source="n2" target="n11" id="16" weight="1.0" />
+      <edge source="n2" target="n47" id="17" weight="1.0" />
+      <edge source="n3" target="n22" id="18" weight="1.0" />
+      <edge source="n3" target="n20" id="19" weight="1.0" />
+      <edge source="n3" target="n5" id="20" weight="1.0" />
+      <edge source="n3" target="n39" id="21" weight="1.0" />
+      <edge source="n3" target="n9" id="22" weight="1.0" />
+      <edge source="n3" target="n18" id="23" weight="1.0" />
+      <edge source="n4" target="n15" id="24" weight="1.0" />
+      <edge source="n4" target="n34" id="25" weight="1.0" />
+      <edge source="n4" target="n10" id="26" weight="1.0" />
+      <edge source="n4" target="n32" id="27" weight="1.0" />
+      <edge source="n4" target="n17" id="28" weight="1.0" />
+      <edge source="n5" target="n8" id="29" weight="1.0" />
+      <edge source="n5" target="n44" id="30" weight="1.0" />
+      <edge source="n5" target="n20" id="31" weight="1.0" />
+      <edge source="n5" target="n14" id="32" weight="1.0" />
+      <edge source="n5" target="n47" id="33" weight="1.0" />
+      <edge source="n5" target="n18" id="34" weight="1.0" />
+      <edge source="n5" target="n38" id="35" weight="1.0" />
+      <edge source="n5" target="n35" id="36" weight="1.0" />
+      <edge source="n5" target="n58" id="37" weight="1.0" />
+      <edge source="n6" target="n48" id="38" weight="1.0" />
+      <edge source="n6" target="n52" id="39" weight="1.0" />
+      <edge source="n6" target="n47" id="40" weight="1.0" />
+      <edge source="n6" target="n42" id="41" weight="1.0" />
+      <edge source="n6" target="n22" id="42" weight="1.0" />
+      <edge source="n6" target="n51" id="43" weight="1.0" />
+      <edge source="n6" target="n44" id="44" weight="1.0" />
+      <edge source="n6" target="n12" id="45" weight="1.0" />
+      <edge source="n6" target="n18" id="46" weight="1.0" />
+      <edge source="n7" target="n49" id="47" weight="1.0" />
+      <edge source="n7" target="n40" id="48" weight="1.0" />
+      <edge source="n7" target="n11" id="49" weight="1.0" />
+      <edge source="n7" target="n43" id="50" weight="1.0" />
+      <edge source="n7" target="n31" id="51" weight="1.0" />
+      <edge source="n7" target="n37" id="52" weight="1.0" />
+      <edge source="n7" target="n34" id="53" weight="1.0" />
+      <edge source="n7" target="n25" id="54" weight="1.0" />
+      <edge source="n7" target="n10" id="55" weight="1.0" />
+      <edge source="n8" target="n35" id="56" weight="1.0" />
+      <edge source="n8" target="n31" id="57" weight="1.0" />
+      <edge source="n8" target="n53" id="58" weight="1.0" />
+      <edge source="n8" target="n36" id="59" weight="1.0" />
+      <edge source="n8" target="n20" id="60" weight="1.0" />
+      <edge source="n8" target="n21" id="61" weight="1.0" />
+      <edge source="n8" target="n41" id="62" weight="1.0" />
+      <edge source="n8" target="n27" id="63" weight="1.0" />
+      <edge source="n9" target="n19" id="64" weight="1.0" />
+      <edge source="n9" target="n54" id="65" weight="1.0" />
+      <edge source="n9" target="n30" id="66" weight="1.0" />
+      <edge source="n9" target="n21" id="67" weight="1.0" />
+      <edge source="n9" target="n39" id="68" weight="1.0" />
+      <edge source="n9" target="n24" id="69" weight="1.0" />
+      <edge source="n9" target="n12" id="70" weight="1.0" />
+      <edge source="n9" target="n42" id="71" weight="1.0" />
+      <edge source="n10" target="n49" id="72" weight="1.0" />
+      <edge source="n10" target="n23" id="73" weight="1.0" />
+      <edge source="n10" target="n43" id="74" weight="1.0" />
+      <edge source="n10" target="n38" id="75" weight="1.0" />
+      <edge source="n11" target="n36" id="76" weight="1.0" />
+      <edge source="n11" target="n23" id="77" weight="1.0" />
+      <edge source="n11" target="n32" id="78" weight="1.0" />
+      <edge source="n11" target="n59" id="79" weight="1.0" />
+      <edge source="n11" target="n17" id="80" weight="1.0" />
+      <edge source="n11" target="n34" id="81" weight="1.0" />
+      <edge source="n12" target="n21" id="82" weight="1.0" />
+      <edge source="n12" target="n60" id="83" weight="1.0" />
+      <edge source="n12" target="n31" id="84" weight="1.0" />
+      <edge source="n12" target="n33" id="85" weight="1.0" />
+      <edge source="n12" target="n15" id="86" weight="1.0" />
+      <edge source="n12" target="n51" id="87" weight="1.0" />
+      <edge source="n12" target="n36" id="88" weight="1.0" />
+      <edge source="n12" target="n30" id="89" weight="1.0" />
+      <edge source="n12" target="n34" id="90" weight="1.0" />
+      <edge source="n12" target="n55" id="91" weight="1.0" />
+      <edge source="n12" target="n32" id="92" weight="1.0" />
+      <edge source="n13" target="n52" id="93" weight="1.0" />
+      <edge source="n13" target="n58" id="94" weight="1.0" />
+      <edge source="n13" target="n31" id="95" weight="1.0" />
+      <edge source="n13" target="n40" id="96" weight="1.0" />
+      <edge source="n13" target="n34" id="97" weight="1.0" />
+      <edge source="n13" target="n19" id="98" weight="1.0" />
+      <edge source="n13" target="n18" id="99" weight="1.0" />
+      <edge source="n13" target="n36" id="100" weight="1.0" />
+      <edge source="n14" target="n17" id="101" weight="1.0" />
+      <edge source="n14" target="n56" id="102" weight="1.0" />
+      <edge source="n14" target="n38" id="103" weight="1.0" />
+      <edge source="n14" target="n41" id="104" weight="1.0" />
+      <edge source="n14" target="n58" id="105" weight="1.0" />
+      <edge source="n14" target="n29" id="106" weight="1.0" />
+      <edge source="n14" target="n51" id="107" weight="1.0" />
+      <edge source="n14" target="n47" id="108" weight="1.0" />
+      <edge source="n14" target="n50" id="109" weight="1.0" />
+      <edge source="n15" target="n50" id="110" weight="1.0" />
+      <edge source="n15" target="n51" id="111" weight="1.0" />
+      <edge source="n15" target="n42" id="112" weight="1.0" />
+      <edge source="n15" target="n57" id="113" weight="1.0" />
+      <edge source="n16" target="n22" id="114" weight="1.0" />
+      <edge source="n16" target="n19" id="115" weight="1.0" />
+      <edge source="n16" target="n28" id="116" weight="1.0" />
+      <edge source="n16" target="n50" id="117" weight="1.0" />
+      <edge source="n16" target="n39" id="118" weight="1.0" />
+      <edge source="n16" target="n46" id="119" weight="1.0" />
+      <edge source="n16" target="n58" id="120" weight="1.0" />
+      <edge source="n17" target="n32" id="121" weight="1.0" />
+      <edge source="n17" target="n23" id="122" weight="1.0" />
+      <edge source="n17" target="n29" id="123" weight="1.0" />
+      <edge source="n18" target="n24" id="124" weight="1.0" />
+      <edge source="n18" target="n54" id="125" weight="1.0" />
+      <edge source="n18" target="n39" id="126" weight="1.0" />
+      <edge source="n18" target="n45" id="127" weight="1.0" />
+      <edge source="n19" target="n55" id="128" weight="1.0" />
+      <edge source="n19" target="n31" id="129" weight="1.0" />
+      <edge source="n19" target="n44" id="130" weight="1.0" />
+      <edge source="n19" target="n20" id="131" weight="1.0" />
+      <edge source="n20" target="n47" id="132" weight="1.0" />
+      <edge source="n20" target="n29" id="133" weight="1.0" />
+      <edge source="n20" target="n59" id="134" weight="1.0" />
+      <edge source="n21" target="n51" id="135" weight="1.0" />
+      <edge source="n21" target="n45" id="136" weight="1.0" />
+      <edge source="n21" target="n52" id="137" weight="1.0" />
+      <edge source="n21" target="n27" id="138" weight="1.0" />
+      <edge source="n21" target="n46" id="139" weight="1.0" />
+      <edge source="n21" target="n54" id="140" weight="1.0" />
+      <edge source="n22" target="n49" id="141" weight="1.0" />
+      <edge source="n22" target="n37" id="142" weight="1.0" />
+      <edge source="n22" target="n36" id="143" weight="1.0" />
+      <edge source="n22" target="n28" id="144" weight="1.0" />
+      <edge source="n22" target="n56" id="145" weight="1.0" />
+      <edge source="n22" target="n31" id="146" weight="1.0" />
+      <edge source="n22" target="n57" id="147" weight="1.0" />
+      <edge source="n23" target="n50" id="148" weight="1.0" />
+      <edge source="n23" target="n41" id="149" weight="1.0" />
+      <edge source="n23" target="n35" id="150" weight="1.0" />
+      <edge source="n23" target="n59" id="151" weight="1.0" />
+      <edge source="n24" target="n36" id="152" weight="1.0" />
+      <edge source="n24" target="n30" id="153" weight="1.0" />
+      <edge source="n24" target="n47" id="154" weight="1.0" />
+      <edge source="n25" target="n55" id="155" weight="1.0" />
+      <edge source="n25" target="n28" id="156" weight="1.0" />
+      <edge source="n25" target="n46" id="157" weight="1.0" />
+      <edge source="n25" target="n43" id="158" weight="1.0" />
+      <edge source="n25" target="n38" id="159" weight="1.0" />
+      <edge source="n25" target="n40" id="160" weight="1.0" />
+      <edge source="n25" target="n41" id="161" weight="1.0" />
+      <edge source="n25" target="n59" id="162" weight="1.0" />
+      <edge source="n26" target="n35" id="163" weight="1.0" />
+      <edge source="n26" target="n59" id="164" weight="1.0" />
+      <edge source="n26" target="n38" id="165" weight="1.0" />
+      <edge source="n26" target="n56" id="166" weight="1.0" />
+      <edge source="n26" target="n37" id="167" weight="1.0" />
+      <edge source="n26" target="n41" id="168" weight="1.0" />
+      <edge source="n26" target="n47" id="169" weight="1.0" />
+      <edge source="n27" target="n55" id="170" weight="1.0" />
+      <edge source="n27" target="n45" id="171" weight="1.0" />
+      <edge source="n27" target="n33" id="172" weight="1.0" />
+      <edge source="n28" target="n37" id="173" weight="1.0" />
+      <edge source="n28" target="n58" id="174" weight="1.0" />
+      <edge source="n28" target="n43" id="175" weight="1.0" />
+      <edge source="n28" target="n34" id="176" weight="1.0" />
+      <edge source="n28" target="n45" id="177" weight="1.0" />
+      <edge source="n29" target="n32" id="178" weight="1.0" />
+      <edge source="n29" target="n38" id="179" weight="1.0" />
+      <edge source="n29" target="n46" id="180" weight="1.0" />
+      <edge source="n29" target="n53" id="181" weight="1.0" />
+      <edge source="n29" target="n36" id="182" weight="1.0" />
+      <edge source="n29" target="n35" id="183" weight="1.0" />
+      <edge source="n30" target="n42" id="184" weight="1.0" />
+      <edge source="n30" target="n36" id="185" weight="1.0" />
+      <edge source="n30" target="n43" id="186" weight="1.0" />
+      <edge source="n30" target="n53" id="187" weight="1.0" />
+      <edge source="n31" target="n54" id="188" weight="1.0" />
+      <edge source="n31" target="n49" id="189" weight="1.0" />
+      <edge source="n32" target="n53" id="190" weight="1.0" />
+      <edge source="n32" target="n40" id="191" weight="1.0" />
+      <edge source="n33" target="n43" id="192" weight="1.0" />
+      <edge source="n33" target="n39" id="193" weight="1.0" />
+      <edge source="n33" target="n45" id="194" weight="1.0" />
+      <edge source="n33" target="n44" id="195" weight="1.0" />
+      <edge source="n33" target="n48" id="196" weight="1.0" />
+      <edge source="n33" target="n49" id="197" weight="1.0" />
+      <edge source="n33" target="n58" id="198" weight="1.0" />
+      <edge source="n33" target="n55" id="199" weight="1.0" />
+      <edge source="n34" target="n46" id="200" weight="1.0" />
+      <edge source="n34" target="n49" id="201" weight="1.0" />
+      <edge source="n34" target="n40" id="202" weight="1.0" />
+      <edge source="n34" target="n36" id="203" weight="1.0" />
+      <edge source="n35" target="n56" id="204" weight="1.0" />
+      <edge source="n35" target="n38" id="205" weight="1.0" />
+      <edge source="n36" target="n48" id="206" weight="1.0" />
+      <edge source="n36" target="n39" id="207" weight="1.0" />
+      <edge source="n37" target="n43" id="208" weight="1.0" />
+      <edge source="n37" target="n51" id="209" weight="1.0" />
+      <edge source="n37" target="n40" id="210" weight="1.0" />
+      <edge source="n38" target="n46" id="211" weight="1.0" />
+      <edge source="n38" target="n59" id="212" weight="1.0" />
+      <edge source="n38" target="n53" id="213" weight="1.0" />
+      <edge source="n38" target="n50" id="214" weight="1.0" />
+      <edge source="n39" target="n48" id="215" weight="1.0" />
+      <edge source="n39" target="n60" id="216" weight="1.0" />
+      <edge source="n39" target="n54" id="217" weight="1.0" />
+      <edge source="n39" target="n51" id="218" weight="1.0" />
+      <edge source="n40" target="n60" id="219" weight="1.0" />
+      <edge source="n40" target="n43" id="220" weight="1.0" />
+      <edge source="n41" target="n53" id="221" weight="1.0" />
+      <edge source="n41" target="n50" id="222" weight="1.0" />
+      <edge source="n42" target="n54" id="223" weight="1.0" />
+      <edge source="n42" target="n48" id="224" weight="1.0" />
+      <edge source="n43" target="n46" id="225" weight="1.0" />
+      <edge source="n43" target="n49" id="226" weight="1.0" />
+      <edge source="n43" target="n59" id="227" weight="1.0" />
+      <edge source="n44" target="n59" id="228" weight="1.0" />
+      <edge source="n46" target="n49" id="229" weight="1.0" />
+      <edge source="n49" target="n58" id="230" weight="1.0" />
+      <edge source="n49" target="n52" id="231" weight="1.0" />
+      <edge source="n49" target="n53" id="232" weight="1.0" />
+      <edge source="n50" target="n53" id="233" weight="1.0" />
+      <edge source="n51" target="n57" id="234" weight="1.0" />
+      <edge source="n52" target="n58" id="235" weight="1.0" />
+      <edge source="n52" target="n54" id="236" weight="1.0" />
+      <edge source="n53" target="n56" id="237" weight="1.0" />
+      <edge source="n55" target="n58" id="238" weight="1.0" />
+      <edge source="n56" target="n59" id="239" weight="1.0" />
+    </edges>
+  </graph>
+</gexf>
