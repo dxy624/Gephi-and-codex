@@ -35,6 +35,9 @@ public final class Engine {
                 if(v==null){v=new Scene.Vertex();v.id=id;v.x=(rng.nextDouble()-.5)*500;v.y=(rng.nextDouble()-.5)*500;v.z=(rng.nextDouble()-.5)*500;Color c=n.getColor();v.r=c.getRed()/255f;v.g=c.getGreen()/255f;v.b=c.getBlue()/255f;v.size=Math.max(4,Math.min(30,n.size()));}
                 v.label=n.getLabel()==null||n.getLabel().isEmpty()?id:n.getLabel();v.degree=graph.getDegree(n);v.attributes.clear();
                 for(Column c:n.getAttributeColumns())if(!c.isProperty()){Object value=n.getAttribute(c);if(value!=null)v.attributes.put(c.getId(),String.valueOf(value));}
+                // GEXF writers may use numeric attribute IDs with readable titles.
+                // Keep original IDs and expose non-conflicting title aliases for layer/search users.
+                for(Column c:n.getAttributeColumns())if(!c.isProperty() && c.getTitle()!=null && !c.getTitle().isBlank()){Object value=n.getAttribute(c);if(value!=null)v.attributes.putIfAbsent(c.getTitle(),String.valueOf(value));}
                 v.community=v.attributes.getOrDefault("community",v.attributes.getOrDefault("modularity_class",v.community));
                 index.put(n.getId(),nodes.size());nodes.add(v);
             }
@@ -48,7 +51,7 @@ public final class Engine {
     void replace(Scene before,Scene after){Workspace w=workspace();w.remove(before);after.revision=before.revision+1;w.add(after);changed.run();}
     void history(boolean backwards){cancel.set(true);Scene s=requireScene();Map<Integer,Deque<Scene>> a=backwards?undo:redo,b=backwards?redo:undo;Deque<Scene> q=a.computeIfAbsent(s.workspaceId,k->new ArrayDeque<>());if(q.isEmpty())throw new IllegalArgumentException("No history available");b.computeIfAbsent(s.workspaceId,k->new ArrayDeque<>()).push(s.copy());replace(s,q.pop());}
     Scene requireScene(){Scene s=scene();if(s==null)throw new IllegalArgumentException("No workspace open. Generate an example or open a project first.");return s;}
-    public Map<String,Object> state(){Scene s=scene();Map<String,Object> result=new LinkedHashMap<>();result.put("success",true);result.put("version","0.1.0-alpha");result.put("has_workspace",s!=null);result.put("scene",s==null?null:s.status());result.put("layout",Map.of("job_id",jobId,"state",jobState,"iteration",iteration,"error",jobError));result.put("renderer",ExplorerPanel.rendererStatus);return result;}
+    public Map<String,Object> state(){Scene s=scene();Map<String,Object> result=new LinkedHashMap<>();result.put("success",true);result.put("version","0.1.1-alpha");result.put("capabilities",List.of("import_graph","offscreen_export","no_desktop_input"));result.put("has_workspace",s!=null);result.put("scene",s==null?null:s.status());result.put("layout",Map.of("job_id",jobId,"state",jobState,"iteration",iteration,"error",jobError));result.put("renderer",ExplorerPanel.rendererStatus);return result;}
     public Object command(JsonObject j){
         String operation=str(j,"operation","");
         if(Set.of("open","generate","search","node","cancel_layout","save_scene","export_png","benchmark").contains(operation))return commandInternal(j);

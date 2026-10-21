@@ -31,13 +31,13 @@ def release_files(root=ROOT):
                     resolved=(file.parent/target).resolve()
                     if not resolved.is_relative_to(root.resolve()) or not resolved.exists():raise RuntimeError(f'Broken/local external link: {name}: {target}')
                     if resolved.is_file() and resolved.relative_to(root).as_posix() not in names:raise RuntimeError('Linked file is not in the manifest: '+target)
-    digest=verify(root/'dist/gephi-3d-explorer-0.1.0.nbm')
-    if (root/'dist/SHA256SUMS').read_text(encoding='ascii')!=f'{digest}  gephi-3d-explorer-0.1.0.nbm\n':raise RuntimeError('NBM checksum mismatch')
+    digest=verify(root/'dist/gephi-3d-explorer-0.1.1.nbm')
+    if (root/'dist/SHA256SUMS').read_text(encoding='ascii')!=f'{digest}  gephi-3d-explorer-0.1.1.nbm\n':raise RuntimeError('NBM checksum mismatch')
     return names
 
 def package(output_dir,root=ROOT):
     names=release_files(root);output_dir=Path(output_dir).resolve();output_dir.mkdir(parents=True,exist_ok=True)
-    archive_path=output_dir/'gephi-3d-explorer-v0.1.0-alpha.zip'
+    archive_path=output_dir/'gephi-3d-explorer-v0.1.1-alpha.zip'
     with ZipFile(archive_path,'w',ZIP_DEFLATED) as archive:
         for name in names:
             info=ZipInfo('gephi-3d-explorer/'+name,(2026,1,1,0,0,0));info.compress_type=ZIP_DEFLATED;info.external_attr=0o644<<16;archive.writestr(info,(root/name).read_bytes())

@@ -11,7 +11,7 @@ import errno
 from zipfile import ZipFile
 
 ROOT = Path(__file__).resolve().parents[1]
-NBM = ROOT / 'dist/gephi-3d-explorer-0.1.0.nbm'
+NBM = ROOT / 'dist/gephi-3d-explorer-0.1.1.nbm'
 MODULE = 'org-gephi-plugins-explorer3d'
 
 def runtime_dir(value=None):
@@ -63,7 +63,10 @@ def running_instance(state,port):
         try:
             with urllib.request.urlopen(request,timeout=3) as response:
                 health=json.load(response)
-                if health.get('success') and health.get('version')=='0.1.0-alpha': return True
+                if health.get('success') and health.get('version') in {'0.1.0-alpha','0.1.1-alpha'}:
+                    if 'import_graph' not in health.get('capabilities',[]):
+                        raise RuntimeError('This is an older Gephi 3D instance. Save your work and close it normally, then launch the updated version; no process was stopped.')
+                    return True
         except (OSError,ValueError): pass
     raise RuntimeError(f'Port {port} is occupied by another instance/service. Close it yourself or explicitly choose the other supported port; nothing was stopped.')
 

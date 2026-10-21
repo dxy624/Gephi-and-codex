@@ -44,7 +44,8 @@ public final class ExplorerPanel extends TopComponent {
         engine.changed=this::refresh;refresh();
     }
     public int getPersistenceType(){return PERSISTENCE_NEVER;}
-    public static void showPanel(){if(instance==null)instance=new ExplorerPanel();instance.open();instance.requestActive();}
+    public static void showPanel(){showPanel(false);}
+    public static void showPanel(boolean activate){if(instance==null)instance=new ExplorerPanel();instance.open();if(activate)instance.requestActive();else instance.requestVisible();}
     void button(JComponent p,String label,Runnable r){JButton b=new JButton(label);b.addActionListener(e->{try{r.run();}catch(Exception ex){status.setText(ex.getMessage());}});p.add(b);}
     void act(String op,Object... args){JsonObject j=new JsonObject();j.addProperty("operation",op);Scene s=engine.scene();if(s!=null)j.addProperty("workspace_id",s.workspaceId);for(int i=0;i<args.length;i+=2)j.add(args[i].toString(),Scene.JSON.toJsonTree(args[i+1]));try{engine.command(j);}catch(Exception ex){status.setText("操作失败："+ex.getMessage());}}
     void selectionAct(String op,Object... args){Scene s=engine.scene();if(s==null)return;Object[] a=new Object[args.length+2];a[0]="ids";a[1]=new ArrayList<>(s.selection);System.arraycopy(args,0,a,2,args.length);act(op,a);}

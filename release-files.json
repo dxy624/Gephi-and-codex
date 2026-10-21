@@ -8,7 +8,7 @@
   "bridge/gephi3d_client.py",
   "bridge/server.py",
   "dist/SHA256SUMS",
-  "dist/gephi-3d-explorer-0.1.0.nbm",
+  "dist/gephi-3d-explorer-0.1.1.nbm",
   "docs/DEVELOPMENT.md",
   "docs/QUICKSTART.en.md",
   "docs/VALIDATION.md",
@@ -25,6 +25,7 @@
   "plugin/src/org/gephi/plugins/explorer3d/Engine.java",
   "plugin/src/org/gephi/plugins/explorer3d/ExplorerPanel.java",
   "plugin/src/org/gephi/plugins/explorer3d/ForceLayout.java",
+  "plugin/src/org/gephi/plugins/explorer3d/GraphImport.java",
   "plugin/src/org/gephi/plugins/explorer3d/GraphRenderer.java",
   "plugin/src/org/gephi/plugins/explorer3d/Installer.java",
   "plugin/src/org/gephi/plugins/explorer3d/OpenAction.java",
@@ -46,5 +47,6 @@
   "tests/test_install.py",
   "tests/test_live.py",
   "tests/test_release.py",
-  "tests/test_tables.py"
+  "tests/test_tables.py",
+  "tests/test_transport.py"
 ]

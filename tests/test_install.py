@@ -1,4 +1,5 @@
 import hashlib
+from io import BytesIO
 import json
 from pathlib import Path
 import socket
@@ -41,7 +42,7 @@ def test_conflicts_leave_config_and_skill_untouched(tmp_path):
     assert tree(home)==before
 
 def test_nbm_and_exact_module_extraction(tmp_path):
-    assert len(verify(ROOT/'dist/gephi-3d-explorer-0.1.0.nbm'))==64
+    assert len(verify(ROOT/'dist/gephi-3d-explorer-0.1.1.nbm'))==64
     state=tmp_path/'运行 数据';install_module(state)
     before=tree(state);assert len(before)==2
     install_module(state);assert tree(state)==before
@@ -59,3 +60,15 @@ def test_free_port_allows_cold_start(tmp_path):
         try:probe.bind(('127.0.0.1',8183))
         except OSError:pytest.skip('Test port unavailable; no existing instance changed')
     assert running_instance(tmp_path,8183) is False
+
+
+def test_recognized_old_instance_is_not_reused_or_stopped(tmp_path,monkeypatch):
+    token=tmp_path/'profile/config/gephi3d-token';token.parent.mkdir(parents=True);token.write_text('test-only-token',encoding='utf-8')
+    with socket.socket() as server:
+        try:server.bind(('127.0.0.1',8183))
+        except OSError:pytest.skip('Test port unavailable; no existing instance changed')
+        server.listen()
+        monkeypatch.setattr('urllib.request.urlopen',lambda *a,**k:BytesIO(b'{"success":true,"version":"0.1.0-alpha"}'))
+        with pytest.raises(RuntimeError,match='Save your work and close it normally'):running_instance(tmp_path,8183)
+        monkeypatch.setattr('urllib.request.urlopen',lambda *a,**k:BytesIO(b'{"success":true,"version":"0.1.1-alpha","capabilities":["import_graph"]}'))
+        assert running_instance(tmp_path,8183) is True

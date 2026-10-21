@@ -1,8 +1,10 @@
 # Gephi 3D Explorer
 
-**v0.1.0-alpha · Windows · Gephi 0.11.3**
+**v0.1.1-alpha · Windows · Gephi 0.11.3**
 
 在 Gephi 内旋转、分层和探索三维网络，也可让 Codex 用中文控制同一个视图。此仓库包含 Gephi 插件、独立 MCP 服务和 `gephi-3d` Skill，三者配合使用。
+
+**默认通过插件接口执行，不接管鼠标键盘。** 连接失败会报告原因；只有用户明确要求操作界面时，才允许使用电脑控制。图像检查使用插件导出，无需桌面截图或拖动验证。
 
 ![合成网络三维视图](docs/assets/preview.png)
 
@@ -46,7 +48,7 @@ py -3.12 scripts/setup.py --gephi "D:\Apps\Gephi-0.11.3" --install-skill --confi
 
 ## 3. 启动
 
-双击根目录 **Start-Gephi-3D.cmd**。启动程序会从附带的 [NBM](dist/gephi-3d-explorer-0.1.0.nbm) 中安装本模块到独立配置，并打开真正的 Gephi。原来的 Gephi 配置不变。
+双击根目录 **Start-Gephi-3D.cmd**。启动程序会从附带的 [NBM](dist/gephi-3d-explorer-0.1.1.nbm) 中安装本模块到独立配置，并打开真正的 Gephi。原来的 Gephi 配置不变。
 
 默认本地服务为 `127.0.0.1:8184`，运行数据和日志在 `%LOCALAPPDATA%\Gephi3DExplorer`。同一实例已运行时复用其窗口；端口被其他实例占用时报告冲突，不关闭其他进程。正常关闭 Gephi 窗口即可退出。
 
@@ -68,7 +70,15 @@ py -3.12 scripts/setup.py --gephi "D:\Apps\Gephi-0.11.3" --install-skill --confi
 
 > 使用 gephi-3d，生成一个 60 节点、3 社区的合成网络，按社区配色并运行三维布局。找到节点 12，聚焦它，高亮两阶邻居；把社区分层，保存观察视角。
 
-也可以直接点击面板的“生成示例网络”和“三维布局”。已有 GEXF 使用 Gephi 菜单导入，随后点击“读取当前图”。[示例与数据格式](examples/README.md)
+也可以自行点击面板的“生成示例网络”和“三维布局”。已有数据可对 Codex 说：
+
+> 使用 gephi-3d，通过插件接口把指定绝对路径的 GEXF 导入新工作区，保留已有图；按 level 属性分层，运行三维布局并保存视角。不要使用电脑控制。
+
+`gephi3d_import_graph` 直接导入静态 GEXF，保留中文 ID、属性、方向、权重、颜色和已有 XYZ；未提供坐标的节点获得初始三维位置。CSV/XLSX 先转换成 GEXF。[示例与数据格式](examples/README.md)
+
+导入上限为 20 MB、10000 节点、100000 边；不支持动态图或嵌套 GEXF 节点，行政层级可使用普通节点、parent 属性和有向边表示。错误文件不会覆盖已有图。
+
+若运行中的插件早于 0.1.1，先保存工作并正常关闭 Gephi，再通过新版启动入口打开；不会自动关闭旧实例。更新后重新加载 Codex MCP，以发现第 25 个工具。仅在缺少接口、认证或权限时报告恢复步骤，不转为鼠标键盘操作。
 
 ## 5. 保存与导出
 

@@ -17,7 +17,7 @@ class Gephi3D:
 
     def request(self, path: str, payload: dict | None = None, timeout: float = 90) -> dict:
         if not self.token_file.is_file():
-            raise RuntimeError(f'Gephi 3D plugin is not running, or token path is incorrect: {self.token_file}')
+            raise RuntimeError(f'Gephi 3D token file is missing: {self.token_file}. Start the configured Gephi 3D instance or correct the token-file setting. Do not fall back to desktop control.')
         token = self.token_file.read_text(encoding='utf-8').strip()
         headers = {'Authorization': 'Bearer '+token, 'Content-Type': 'application/json'}
         request = urllib.request.Request(self.url+path, data=json.dumps(payload, ensure_ascii=False, allow_nan=False).encode() if payload is not None else None, headers=headers)
@@ -25,11 +25,15 @@ class Gephi3D:
             with urllib.request.urlopen(request, timeout=timeout) as response:
                 result = json.load(response)
         except urllib.error.HTTPError as exc:
+            if exc.code in (401, 403):
+                raise RuntimeError(f'Gephi 3D authentication failed (HTTP {exc.code}). Check that the URL and token file belong to the same Gephi instance; do not fall back to desktop control.') from exc
             try: detail = json.load(exc).get('error', str(exc))
             except (ValueError, AttributeError): detail = str(exc)
             raise RuntimeError(detail) from exc
         except urllib.error.URLError as exc:
-            raise RuntimeError('Cannot connect to Gephi 3D. Start Gephi with the plugin enabled.') from exc
+            raise RuntimeError(f'Cannot connect to Gephi 3D at {self.url}. Start the configured instance with its plugin enabled; do not fall back to desktop control.') from exc
+        except (TimeoutError, ConnectionError) as exc:
+            raise RuntimeError('Gephi 3D request timed out or the connection was lost; the command outcome is unknown. Read status before retrying. Do not fall back to desktop control.') from exc
         if result.get('success') is False: raise RuntimeError(result.get('error', 'Gephi command failed'))
         return result
 

@@ -21,7 +21,7 @@ def verify(path):
         info=ET.fromstring(archive.read('Info/info.xml'))
         if info.attrib['codenamebase']!='org.gephi.plugins.explorer3d':raise RuntimeError('Unexpected module')
         manifest=info.find('manifest')
-        if manifest is None or manifest.attrib['OpenIDE-Module-Specification-Version']!='0.1.0':raise RuntimeError('Unexpected plugin version')
+        if manifest is None or manifest.attrib['OpenIDE-Module-Specification-Version']!='0.1.1':raise RuntimeError('Unexpected plugin version')
         jar=ZipFile(BytesIO(archive.read(f'netbeans/modules/{MODULE}.jar')))
         for required in ['org/gephi/plugins/explorer3d/Installer.class','META-INF/services/org.gephi.project.spi.WorkspacePersistenceProvider']:
             jar.getinfo(required)

@@ -1,48 +1,57 @@
 {
-  "release": "v0.1.0-alpha",
+  "release": "v0.1.1-alpha",
   "date": "2026-10-21",
   "status": "passed",
   "platform": "Windows 11 / Gephi 0.11.3 / Java 17 / Python 3.12",
   "automated_tests": {
-    "passed": 9,
+    "passed": 13,
     "failed": 0,
     "live_gephi_explicitly_enabled": true,
     "default_live_skipped": true
   },
-  "clean_install": {
-    "fresh_venv_and_downloaded_dependencies": true,
-    "chinese_and_space_path": true,
-    "dry_run_left_configuration_unchanged": true,
-    "idempotent_configuration": true,
-    "unrelated_configuration_preserved": true,
-    "dependency_check": "passed",
-    "installed_launcher_cold_start": true,
-    "authenticated_reuse_same_process": true
+  "execution": {
+    "desktop_control_used_in_acceptance": false,
+    "skill_requires_explicit_ui_request": true,
+    "mcp_tools": 25
   },
   "live_scenarios": [
-    "60 nodes, 240 edges, 3 communities",
-    "3D force layout",
-    "node n12 search and focus",
-    "two-hop neighborhood compared with NetworkX",
-    "three Z layers and Chinese bookmark",
-    "project save/reopen state comparison",
-    "24 MCP tools, typed search",
-    "6000x4000 PNG and PDF"
+    "60 nodes, 240 edges, 3 communities; 3D layout; node n12 and two-hop neighborhood",
+    "layers, Chinese bookmarks, project save/reopen, 6000x4000 PNG and PDF",
+    "typed MCP GEXF import from Chinese/space path into a fresh workspace",
+    "Chinese attributes and title aliases, string ID 001, direction, zero weight, RGB and supplied XYZ",
+    "malformed XML, duplicate IDs, missing endpoints and external entities rejected without scene mutation",
+    "duplicate import request returns the same workspace; original scene retained exactly in saved project",
+    "imported layout/focus/neighbors/bookmark/PNG/PDF and project reopen"
   ],
+  "configuration_checks": {
+    "dry_run_unchanged": true,
+    "idempotent_configuration": true,
+    "unrelated_configuration_preserved": true,
+    "conflicts_rejected": true,
+    "old_instance_requires_save_close": true
+  },
+  "connection_checks": [
+    "missing token",
+    "authentication mismatch",
+    "connection unavailable",
+    "timeout is not retried",
+    "old-plugin import capability"
+  ],
+  "launcher": {
+    "version": "0.1.1-alpha",
+    "fresh_launcher_start": true,
+    "same_process_reused": true,
+    "desktop_control_used": false
+  },
   "build": {
     "java_bytecode": 17,
-    "nbm_sha256": "77df279ad3d1be12a6e5e7528472f34fc727a57ef3333f1969a77eee392a69a6",
-    "identical_rebuild_in_chinese_space_path": true
+    "nbm_sha256": "7caf6dddfd0607e8d203f45bf748bb859235a796c8b0e2fdc98c76fd7c7dd1f4"
   },
+  "installation_baseline": "The fresh Python environment and dependency download were verified for v0.1.0-alpha; dependencies are unchanged. Current tests recheck configuration, module extraction and launcher operation.",
   "limitations": [
-    "Only Windows and Gephi 0.11.3 tested",
-    "UI drag details and long-running cross-driver stability remain Alpha limits",
-    "Historical performance figure is not a sustained-interaction guarantee"
-  ],
-  "packaging": {
-    "explicit_allowlist": true,
-    "local_links_checked": true,
-    "no_personal_paths_or_credentials": true,
-    "original_development_sources_unchanged": true
-  }
+    "Windows and Gephi 0.11.3 only",
+    "Skill routing is an instruction, not a global desktop-permission switch",
+    "Static GEXF only, 20 MB / 10000 nodes / 100000 edges",
+    "Active older user instances are not restarted automatically"
+  ]
 }
