@@ -1,6 +1,8 @@
 """Shared discovery and isolated runtime paths; importing this module writes nothing."""
 from __future__ import annotations
 import os
+from datetime import datetime, timezone
+from hashlib import sha256
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import re
@@ -12,10 +14,12 @@ import errno
 from zipfile import ZipFile
 
 ROOT = Path(__file__).resolve().parents[1]
-MODULE_VERSION = '0.1.3'
-RELEASE_TAG = 'v0.1.4-alpha'
+MODULE_VERSION = '0.1.4'
+RELEASE_TAG = 'v0.1.5-alpha'
 NBM = ROOT / 'dist' / f'gephi-3d-explorer-{MODULE_VERSION}.nbm'
 MODULE = 'org-gephi-plugins-explorer3d'
+# The unchanged 0.1.3 JAR shipped in the previous public desktop installer.
+PREVIOUS_DESKTOP_MODULE = 'a43a2510acfba5d03d77a0696c9cd569668cf049fb6e7854a2dbd8f6492a86e8'
 DESKTOP_PORT = 8183
 ISOLATED_PORT = 8184
 
@@ -76,7 +80,7 @@ def running_instance(state,port):
             with urllib.request.urlopen(request,timeout=3) as response:
                 health=json.load(response)
                 if health.get('success') and re.fullmatch(r'\d+\.\d+\.\d+-alpha', health.get('version', '')):
-                    if 'geography' not in health.get('capabilities', []):
+                    if not {'geography', 'arrow_style'}.issubset(health.get('capabilities', [])):
                         raise RuntimeError('This is an older Gephi 3D instance. Save your work and close it normally, then launch the updated version; no process was stopped.')
                     return True
         except (OSError,ValueError): pass
@@ -86,19 +90,25 @@ def install_module(state,nbm=NBM):
     install_profile(state/'profile', nbm)
 
 def install_profile(profile, nbm=NBM, *, desktop=False, dry_run=False):
-    """Install the two named NBM files and keep existing desktop modules intact."""
+    """Install the named NBM files and back up a recognized desktop upgrade."""
     members = (f'modules/{MODULE}.jar', f'config/Modules/{MODULE}.xml')
+    module_jar = profile/members[0]
     with ZipFile(nbm) as archive:
         if archive.testzip(): raise RuntimeError('Corrupt NBM')
         contents = {profile/member: archive.read('netbeans/'+member) for member in members}
     pending = {}
+    previous = {}
     for destination, data in contents.items():
         if destination.exists():
-            if destination.read_bytes() == data:
+            existing = destination.read_bytes()
+            if existing == data:
                 continue
             if desktop:
-                raise RuntimeError(f'An existing desktop plugin file differs: {destination}. '
-                                   'Review the 3D Explorer installation in Gephi before continuing.')
+                known_jar = destination == module_jar and sha256(existing).hexdigest() == PREVIOUS_DESKTOP_MODULE
+                if not known_jar:
+                    raise RuntimeError(f'An existing desktop plugin file differs: {destination}. '
+                                       'Review the 3D Explorer installation in Gephi before continuing.')
+                previous[destination] = existing
         pending[destination] = data
 
     if not pending:
@@ -122,16 +132,37 @@ def install_profile(profile, nbm=NBM, *, desktop=False, dry_run=False):
             destination.parent.mkdir(parents=True, exist_ok=True)
         if (profile/'lock').exists():
             raise RuntimeError('Desktop Gephi started during setup. Close it normally and rerun setup.')
+        backup = None
+        if previous:
+            stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
+            backup = profile/'gephi3d-backups'/f'{stamp}.jar'
+            backup.parent.mkdir(parents=True, exist_ok=True)
+            with backup.open('xb') as stream:
+                stream.write(previous[module_jar])
         try:
             for destination in pending:
-                # A Windows rename fails if an installer created the destination in the meantime.
-                (Path(staging)/destination.name).rename(destination)
+                if (profile/'lock').exists():
+                    raise RuntimeError('Desktop Gephi started during setup. Close it normally and rerun setup.')
+                staged = Path(staging)/destination.name
+                if destination in previous:
+                    if destination.read_bytes() != previous[destination]:
+                        raise RuntimeError(f'Plugin changed during setup: {destination}')
+                    staged.replace(destination)
+                else:
+                    staged.rename(destination)
                 written.append(destination)
-        except OSError:
+        except (OSError, RuntimeError):
             for destination in written:
                 if destination.is_file() and destination.read_bytes() == pending[destination]:
-                    destination.unlink()
+                    if destination in previous:
+                        restore = Path(staging)/destination.name
+                        restore.write_bytes(previous[destination])
+                        restore.replace(destination)
+                    else:
+                        destination.unlink()
             raise
+        if backup is not None:
+            print(f'Previous desktop plugin backed up to {backup}')
     return True
 
 def launch_command(gephi,java,state,port,project=None):

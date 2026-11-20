@@ -14,6 +14,9 @@ public final class Scene {
     public boolean perspective = true;
     public String visualStyle = "classic";
     public boolean arrows;
+    // Older map scenes always showed arrows. An explicit setting overrides that default.
+    public boolean arrowsManuallySet;
+    public double arrowScale = 1;
     GeoLayer geography;
     public boolean geographyEnabled;
     double[] regularCamera, geographicCamera;
@@ -55,6 +58,7 @@ public final class Scene {
     public Vertex find(String id) { for(Vertex n:nodes) if(n.id.equals(id)) return n; throw new IllegalArgumentException("Unknown node: "+id); }
     public boolean visible(Vertex n) { return (!geographyEnabled || geography.positions.containsKey(n.id)) && n.degree>=minDegree && (communityFilter.isEmpty() || n.community.equals(communityFilter)) && (!isolate || highlight.isEmpty() || highlight.contains(n.id)); }
     public boolean emphasized(Vertex n) { return selection.contains(n.id) || highlight.contains(n.id); }
+    public boolean showsArrows() { return arrows || (geographyEnabled && !arrowsManuallySet); }
     public Map<String,Object> status() {
         Map<String,Object> m=new LinkedHashMap<>();
         m.put("workspace_id",workspaceId);m.put("revision",revision);m.put("nodes",nodes.size());m.put("edges",edges.size());
@@ -62,7 +66,8 @@ public final class Scene {
         m.put("selection",selection);m.put("highlight",highlight);m.put("synthetic",synthetic);m.put("source",source);m.put("template",template);m.put("seed",seed);
         m.put("camera",Map.of("yaw",yaw,"pitch",pitch,"distance",distance,"target",new double[]{targetX,targetY,targetZ},"perspective",perspective));
         m.put("bookmarks",bookmarks.keySet());m.put("layer_attribute",layerAttribute);
-        m.put("style", Map.of("preset", visualStyle, "arrows", arrows, "dark", dark, "labels", labels));
+        m.put("style", Map.of("preset", visualStyle, "arrows", showsArrows(), "dark", dark, "labels", labels,
+            "edge_width", edgeWidth, "arrow_scale", arrowScale));
         if (geography != null) m.put("geography", Map.of("enabled", geographyEnabled,
             "source", geography.source, "matched_nodes", nodes.stream().filter(n -> geography.positions.containsKey(n.id)).count(),
             "cities", geography.cities.size(), "leader_communities", geography.communities));

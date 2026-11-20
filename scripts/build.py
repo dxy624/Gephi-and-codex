@@ -1,4 +1,4 @@
-"""Build/verify the Windows Gephi 0.11.3 NBM against local API jars."""
+"""Build or verify the Gephi 0.11 NBM against local API jars."""
 from __future__ import annotations
 import argparse
 import hashlib
@@ -67,5 +67,5 @@ def main():
         write_zip(NBM,{'Info/info.xml':ET.tostring(info,encoding='utf-8',xml_declaration=True),f'netbeans/modules/{MODULE}.jar':jar.read_bytes(),f'netbeans/config/Modules/{MODULE}.xml':config.encode()})
     digest=verify(NBM)
     if not a.verify_only:(NBM.parent/'SHA256SUMS').write_text(f'{digest}  {NBM.name}\n',encoding='ascii')
-    print(f'Java 17 / Gephi 0.11.3 NBM verified: {digest}')
+    print(f'Java 17 / Gephi 0.11 NBM verified: {digest}')
 if __name__=='__main__':main()

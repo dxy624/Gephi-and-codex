@@ -52,7 +52,7 @@ public final class GraphRenderer implements GLEventListener {
         gl.glClear(GL.GL_COLOR_BUFFER_BIT|GL.GL_DEPTH_BUFFER_BIT);if(s==null)return;
         gl.glEnable(GL.GL_DEPTH_TEST);gl.glDepthFunc(GL.GL_LEQUAL);gl.glEnable(GL.GL_BLEND);gl.glBlendFunc(GL.GL_SRC_ALPHA,GL.GL_ONE_MINUS_SRC_ALPHA);
         if (s.geographyEnabled) map.draw(gl, s.geography, matrix(s, width, height).get(new float[16]));
-        if (s.geographyEnabled || !s.visualStyle.equals("classic") || s.arrows) {
+        if (s.geographyEnabled || !s.visualStyle.equals("classic") || s.showsArrows() || s.arrowsManuallySet) {
             diagrams.draw(gl, s, width, height, this);
             countFrame();
             return;

@@ -51,7 +51,7 @@ public final class Engine {
     void replace(Scene before,Scene after){Workspace w=workspace();w.remove(before);after.revision=before.revision+1;w.add(after);changed.run();}
     void history(boolean backwards){cancel.set(true);Scene s=requireScene();Map<Integer,Deque<Scene>> a=backwards?undo:redo,b=backwards?redo:undo;Deque<Scene> q=a.computeIfAbsent(s.workspaceId,k->new ArrayDeque<>());if(q.isEmpty())throw new IllegalArgumentException("No history available");b.computeIfAbsent(s.workspaceId,k->new ArrayDeque<>()).push(s.copy());replace(s,q.pop());}
     Scene requireScene(){Scene s=scene();if(s==null)throw new IllegalArgumentException("No workspace open. Generate an example or open a project first.");return s;}
-    public Map<String,Object> state(){Scene s=scene();Map<String,Object> result=new LinkedHashMap<>();result.put("success",true);result.put("version","0.1.3-alpha");result.put("capabilities",List.of("import_graph","offscreen_export","no_desktop_input","visual_presets","geography"));result.put("has_workspace",s!=null);result.put("scene",s==null?null:s.status());result.put("layout",Map.of("job_id",jobId,"state",jobState,"iteration",iteration,"error",jobError));result.put("renderer",ExplorerPanel.rendererStatus);return result;}
+    public Map<String,Object> state(){Scene s=scene();Map<String,Object> result=new LinkedHashMap<>();result.put("success",true);result.put("version","0.1.4-alpha");result.put("capabilities",List.of("import_graph","offscreen_export","no_desktop_input","visual_presets","geography","arrow_style"));result.put("has_workspace",s!=null);result.put("scene",s==null?null:s.status());result.put("layout",Map.of("job_id",jobId,"state",jobState,"iteration",iteration,"error",jobError));result.put("renderer",ExplorerPanel.rendererStatus);return result;}
     public Object command(JsonObject j){
         String operation=str(j,"operation","");
         if(Set.of("open","generate","search","node","cancel_layout","save_scene","export_png","benchmark").contains(operation))return commandInternal(j);
@@ -136,13 +136,20 @@ public final class Engine {
         }
         double nodeScale = Math.max(.2, Math.min(5, num(options, "node_scale", scene.nodeScale)));
         double edgeWidth = Math.max(.5, Math.min(5, num(options, "edge_width", scene.edgeWidth)));
+        double arrowScale = Math.max(.4, Math.min(3, num(options, "arrow_scale", scene.arrowScale)));
         boolean presetChanged = !preset.equals(scene.visualStyle);
         scene.visualStyle = preset;
         scene.dark = bool(options, "dark", presetChanged ? preset.equals("classic") : scene.dark);
-        scene.arrows = bool(options, "arrows", presetChanged ? preset.equals("weighted") : scene.arrows);
+        if (options.has("arrows")) {
+            scene.arrows = bool(options, "arrows", scene.arrows);
+            scene.arrowsManuallySet = true;
+        } else if (presetChanged && !scene.arrowsManuallySet) {
+            scene.arrows = preset.equals("weighted");
+        }
         scene.labels = bool(options, "labels", scene.labels);
         scene.nodeScale = nodeScale;
         scene.edgeWidth = edgeWidth;
+        scene.arrowScale = arrowScale;
     }
     void startLayout(Scene s,int steps,double ms){
         Scene snapshot=s.copy();AtomicBoolean token=new AtomicBoolean();cancel=token;jobId=UUID.randomUUID().toString();jobState="running";jobError="";iteration=0;

@@ -1,6 +1,6 @@
 # Gephi 3D Explorer
 
-**v0.1.4-alpha · Windows · Gephi 0.11.3 / 0.11.4**
+**v0.1.5-alpha · Windows · Gephi 0.11.3 / 0.11.4**
 
 在 Gephi 内旋转、分层和探索三维网络，也可让 Codex 用中文控制同一个视图。此仓库包含 Gephi 插件、独立 MCP 服务和 `gephi-3d` Skill，三者配合使用。
 
@@ -54,13 +54,17 @@ py -3.12 scripts/setup.py --gephi "D:\Apps\Gephi-0.11.4" --install-skill --confi
 py -3.12 scripts/setup.py --configure-codex --replace-gephi-connection
 ```
 
-如果还需要安装新版 Skill，把已有的 `skills/gephi-3d` 文件夹移到 Codex 技能目录之外作为备份，再运行带 `--install-skill` 的安装命令。若提示普通 Gephi 已装有不同的 3D Explorer 模块，先在 Gephi 插件管理器里检查该模块。安装包内的 [NBM](dist/gephi-3d-explorer-0.1.3.nbm) 也可通过插件管理器安装。
+识别到上一发行包安装的桌面插件时，安装器会备份旧插件并升级。若安装器提示存在其他来源的模块，请在 Gephi 插件管理器里检查，可通过其中的「已下载」页安装新版 [NBM](dist/gephi-3d-explorer-0.1.4.nbm)。若此前编辑过同名 Skill，保留个人版本即可。安装后重开 Gephi 与 Codex。
 
 ## 3. 启动
 
 双击桌面 **Gephi** 图标，或从 Windows 开始菜单打开 Gephi。保持客户端打开，再向 Codex 下达绘图指令。桌面客户端的插件接口默认使用本机端口 `8183`。
 
 如面板未显示，进入 **窗口 → 3D Explorer · 三维探索**。
+
+打开网络后，可在右侧「外观」勾选**有向边箭头**，单独调整**箭头大小**和**线条粗细**。边权重使强连接的箭头更大、连线更粗。普通视图与地理地图都适用，导出反映当前设置，保存 `.gephi` 后可恢复。
+
+![三个权重下的箭头和线宽](docs/assets/edge-style.png)
 
 | 鼠标 | 行为 |
 |---|---|
@@ -87,6 +91,8 @@ py -3.12 scripts/setup.py --mode isolated --install-skill --configure-codex
 在 Codex 中输入：
 
 > 使用 gephi-3d，生成一个 60 节点、3 社区的合成网络，按社区配色并运行三维布局。找到节点 12，聚焦它，高亮两阶邻居；把社区分层，保存观察视角。
+
+> 打开当前工作区的有向边箭头，把箭头大小调到 1.8 倍，线宽调到 2 倍。
 
 也可以自行点击面板的“生成示例网络”和“三维布局”。已有数据可对 Codex 说：
 

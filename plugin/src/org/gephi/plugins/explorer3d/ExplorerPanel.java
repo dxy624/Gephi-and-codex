@@ -22,6 +22,8 @@ public final class ExplorerPanel extends TopComponent {
     private static final List<String> STYLE_IDS = List.of("classic", "communities", "weighted", "keywords");
     private final JComboBox<String> styleChoice = new JComboBox<>(new String[]{"经典三维", "社区关系图", "加权关系图", "关键词网络"});
     private final JCheckBox edgeArrows = new JCheckBox("有向边箭头");
+    private final JSlider arrowScale = new JSlider(4, 30, 10);
+    private final JSlider edgeWidth = new JSlider(5, 50, 10);
     private final JCheckBox geography = new JCheckBox("地理地图");
     private boolean updatingStyleControls;
     public ExplorerPanel(){
@@ -46,6 +48,7 @@ public final class ExplorerPanel extends TopComponent {
         edgeArrows.addActionListener(event -> {
             if (!updatingStyleControls && engine.scene() != null) act("style", "arrows", edgeArrows.isSelected());
         });
+        edgeArrows.setToolTipText("显示或隐藏有向边的箭头，适用于普通视图和地理地图");
         geography.setToolTipText("仅切换当前工作区的地图视图；先准备城市匹配和底图");
         geography.addActionListener(event -> {
             if (!updatingStyleControls && engine.scene() != null) act("geography", "enabled", geography.isSelected());
@@ -55,6 +58,8 @@ public final class ExplorerPanel extends TopComponent {
         visualControls.add(styleChoice, BorderLayout.CENTER);
         JPanel toggles = new JPanel(new GridLayout(0, 1));
         toggles.add(edgeArrows);
+        toggles.add(styleSlider("箭头大小", arrowScale, "arrow_scale", "放大或缩小箭头；权重较高的边仍有较大箭头"));
+        toggles.add(styleSlider("线条粗细", edgeWidth, "edge_width", "调整连线宽度；保留边权重造成的粗细差异"));
         toggles.add(geography);
         visualControls.add(toggles, BorderLayout.SOUTH);
         side.add(visualControls, BorderLayout.NORTH);
@@ -73,6 +78,25 @@ public final class ExplorerPanel extends TopComponent {
     public static void showPanel(){showPanel(false);}
     public static void showPanel(boolean activate){if(instance==null)instance=new ExplorerPanel();instance.open();if(activate)instance.requestActive();else instance.requestVisible();}
     void button(JComponent p,String label,Runnable r){JButton b=new JButton(label);b.addActionListener(e->{try{r.run();}catch(Exception ex){status.setText(ex.getMessage());}});p.add(b);}
+    private JPanel styleSlider(String name, JSlider slider, String option, String tooltip) {
+        JPanel row = new JPanel(new BorderLayout(5, 0));
+        JLabel label = new JLabel(name);
+        label.setLabelFor(slider);
+        JLabel value = new JLabel("1.0×");
+        slider.getAccessibleContext().setAccessibleName(name);
+        slider.setToolTipText(tooltip);
+        slider.addChangeListener(event -> {
+            double multiplier = slider.getValue() / 10.0;
+            value.setText(String.format(Locale.ROOT, "%.1f×", multiplier));
+            if (!updatingStyleControls && !slider.getValueIsAdjusting() && engine.scene() != null) {
+                act("style", option, multiplier);
+            }
+        });
+        row.add(label, BorderLayout.WEST);
+        row.add(slider, BorderLayout.CENTER);
+        row.add(value, BorderLayout.EAST);
+        return row;
+    }
     void act(String op,Object... args){JsonObject j=new JsonObject();j.addProperty("operation",op);Scene s=engine.scene();if(s!=null)j.addProperty("workspace_id",s.workspaceId);for(int i=0;i<args.length;i+=2)j.add(args[i].toString(),Scene.JSON.toJsonTree(args[i+1]));try{engine.command(j);}catch(Exception ex){status.setText("操作失败："+ex.getMessage());}}
     void selectionAct(String op,Object... args){Scene s=engine.scene();if(s==null)return;Object[] a=new Object[args.length+2];a[0]="ids";a[1]=new ArrayList<>(s.selection);System.arraycopy(args,0,a,2,args.length);act(op,a);}
     void selectedNeighbor(int hops){Scene s=engine.scene();if(s==null||s.selection.isEmpty())return;act("neighbors","id",s.selection.iterator().next(),"hops",hops);}
@@ -85,7 +109,11 @@ public final class ExplorerPanel extends TopComponent {
         styleChoice.setEnabled(s != null);
         edgeArrows.setEnabled(s != null);
         styleChoice.setSelectedIndex(s == null ? 0 : Math.max(0, STYLE_IDS.indexOf(s.visualStyle)));
-        edgeArrows.setSelected(s != null && s.arrows);
+        edgeArrows.setSelected(s != null && s.showsArrows());
+        arrowScale.setEnabled(edgeArrows.isSelected());
+        edgeWidth.setEnabled(s != null);
+        if (!arrowScale.getValueIsAdjusting()) arrowScale.setValue(s == null ? 10 : (int) Math.round(s.arrowScale * 10));
+        if (!edgeWidth.getValueIsAdjusting()) edgeWidth.setValue(s == null ? 10 : (int) Math.round(s.edgeWidth * 10));
         geography.setEnabled(s != null && s.geography != null);
         geography.setSelected(s != null && s.geographyEnabled);
         updatingStyleControls = false;

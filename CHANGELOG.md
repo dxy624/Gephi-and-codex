@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.5-alpha — 2026-11-20
+
+- Toggle directed arrowheads in ordinary and geographic views.
+- Adjust arrowhead size and line width separately while retaining weight differences.
+- Save appearance settings with the Gephi project and include them in exports.
+- Back up and upgrade the desktop module from the previous release. This release bundles module 0.1.4.
+
 ## v0.1.4-alpha — 2026-11-20
 
 - Install the Gephi module for the current Windows user by default. Start Gephi from its desktop or Start menu shortcut to draw with Codex.

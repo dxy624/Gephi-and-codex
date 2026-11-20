@@ -69,7 +69,12 @@ def test_visual_presets_require_plugin_support(monkeypatch):
     server.gephi3d_style(7, dark=False)
     plugin.capabilities = ['visual_presets']
     server.gephi3d_style(7, preset='weighted', arrows=False)
+    with pytest.raises(ToolError, match='does not support arrow sizes'):
+        server.gephi3d_style(7, arrow_scale=1.8)
+    plugin.capabilities.append('arrow_style')
+    server.gephi3d_style(7, arrows=True, arrow_scale=1.8, edge_width=2.2)
     assert plugin.calls == [
         ('style', 7, {'dark': False}),
         ('style', 7, {'preset': 'weighted', 'arrows': False}),
+        ('style', 7, {'arrows': True, 'arrow_scale': 1.8, 'edge_width': 2.2}),
     ]

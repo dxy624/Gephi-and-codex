@@ -7,7 +7,7 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from gephi3d_client import Gephi3D
 
-mcp = MCPServer('gephi-3d', version='0.1.3-alpha', instructions='Use the local Gephi plugin API for graph generation, import, exploration and export. These tools require no desktop input. Report connection/capability failures; do not fall back to desktop control unless the user explicitly requests interface operation. Inspect rendering through plugin exports, not desktop screenshots.')
+mcp = MCPServer('gephi-3d', version='0.1.4-alpha', instructions='Use the local Gephi plugin API for graph generation, import, exploration and export. These tools require no desktop input. Report connection/capability failures; do not fall back to desktop control unless the user explicitly requests interface operation. Inspect rendering through plugin exports, not desktop screenshots.')
 client = Gephi3D()
 
 def gephi_tool():
@@ -153,12 +153,17 @@ def gephi3d_bookmark(workspace_id: int, name: str, restore: bool=False) -> dict:
 @gephi_tool()
 def gephi3d_style(workspace_id: int, dark: bool | None=None, labels: bool | None=None,
                   node_scale: float | None=None, edge_width: float | None=None,
-                  preset: str | None=None, arrows: bool | None=None) -> dict:
-    """Style the current 3D scene without moving nodes. Presets: classic, communities (curved, community-colored edges), weighted (weighted lines and directed arrowheads), keywords (larger labels for well-connected nodes). New presets require plugin 0.1.2+."""
-    if preset is not None or arrows is not None:
-        if 'visual_presets' not in client.state().get('capabilities', []):
+                  preset: str | None=None, arrows: bool | None=None,
+                  arrow_scale: float | None=None) -> dict:
+    """Style the scene without moving nodes. Presets: classic, communities, weighted, keywords (0.1.2+). Edge width sets the line multiplier (0.5–5). Set arrows to show/hide arrowheads on directed edges. With plugin 0.1.4+, the toggle also works on maps and arrow_scale controls head size (0.4–3) independently of line width."""
+    options = {key: value for key, value in locals().items() if key != 'workspace_id' and value is not None}
+    if preset is not None or arrows is not None or arrow_scale is not None:
+        capabilities = client.state().get('capabilities', [])
+        if (preset is not None or arrows is not None) and 'visual_presets' not in capabilities:
             raise ToolError('The connected Gephi plugin does not support visual presets. Restart with plugin 0.1.2 or later.')
-    return client.command('style', workspace_id, **{k:v for k,v in locals().items() if k!='workspace_id' and v is not None})
+        if arrow_scale is not None and 'arrow_style' not in capabilities:
+            raise ToolError('The connected Gephi plugin does not support arrow sizes. Install Gephi 3D Explorer 0.1.4 or later.')
+    return client.command('style', workspace_id, **options)
 
 @gephi_tool()
 def gephi3d_history(workspace_id: int, redo: bool=False) -> dict:

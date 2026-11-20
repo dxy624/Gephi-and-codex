@@ -122,8 +122,10 @@ final class DiagramRenderer {
                     color = palette.getOrDefault(from.vertex.community, color);
                 } else if (!leaderGroups.isEmpty() && !hot) alpha = (float) (.20 + .19 * relative);
             }
+            float arrowLength = scene.showsArrows() && edge.directed
+                ? (float) (unit * scene.arrowScale * (7 + 16 * relative)) : 0;
             drawEdge(gl, from, to, color, alpha, lineWidth, unit,
-                curved || (weighted && edge.directed), (scene.arrows || geographic) && edge.directed);
+                curved || (weighted && edge.directed), arrowLength);
         }
         flush(gl);
         gl.glDepthMask(true);
@@ -157,7 +159,7 @@ final class DiagramRenderer {
     }
 
     private void drawEdge(GL2 gl, Node from, Node to, int color, float alpha, float width,
-                          float unit, boolean curved, boolean arrow) {
+                          float unit, boolean curved, float arrowLength) {
         float dx = to.x - from.x;
         float dy = to.y - from.y;
         float distance = (float) Math.hypot(dx, dy);
@@ -183,11 +185,11 @@ final class DiagramRenderer {
             by = to.y + (cy - to.y) * to.radius / last;
         }
         float finish = 1;
-        if (arrow) {
+        if (arrowLength > 0) {
             float dxEnd = bx - cx, dyEnd = by - cy;
             float tangent = (float) Math.hypot(dxEnd, dyEnd);
-            float reach = (float) Math.hypot(bx - ax, by - ay);
-            float head = Math.min(Math.max(8 * unit, width * 3), Math.min(24 * unit, reach * .55f));
+            float reach = from == to ? tangent : (float) Math.hypot(bx - ax, by - ay);
+            float head = Math.min(arrowLength, Math.min(reach * .60f, tangent));
             if (tangent > .1f && head > .1f) {
                 finish = 1 - head / (2 * tangent);
                 float rest = 1 - finish;

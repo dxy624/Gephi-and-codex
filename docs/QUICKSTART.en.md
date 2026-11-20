@@ -13,6 +13,8 @@ Setup installs the module for the current Windows user and creates a project `.v
 
 Open Gephi from its regular desktop or Start menu shortcut, then restart Codex. Desktop Gephi uses local port 8183. If needed, open **Window → 3D Explorer · 三维探索**.
 
+Use the appearance controls to toggle directed arrowheads, change arrowhead size, and adjust line width. Heavier edges show larger arrows and thicker lines. The controls work in both the regular view and the map, and are saved in the Gephi project.
+
 For independent mode, add `--mode isolated` to setup and open `Start-Gephi-3D.cmd`. Its default port is 8184, with data in `%LOCALAPPDATA%\Gephi3DExplorer`. Restart Codex after switching the connection.
 
 Ask Codex: “Use gephi-3d to generate a synthetic network of 60 nodes in 3 communities. Run a 3D layout, focus node 12, highlight its two-hop neighborhood, separate communities into layers and bookmark the view.”
@@ -23,7 +25,7 @@ Use `gephi3d_auto_draw` for a two-sheet Excel workbook, a static GEXF file or a 
 
 For an optional supply-chain map, use `gephi3d_supply_chain_map` with a local Stata DTA, CSV or GEXF dataset, a city-code lookup CSV, a matching local GeoJSON basemap, and chain leader IDs. The map starts off and can be enabled per workspace with the map checkbox in the 3D panel. The [examples](../examples/README.md) list the input columns. Provide your own basemap and data.
 
-To switch an existing connection, run `py -3.12 scripts/setup.py --configure-codex --replace-gephi-connection --dry-run`, review the preview, then repeat without `--dry-run`. Add `--mode isolated` if that is the target. If the installed skill differs and you want to update it, move the old skill folder outside the skills directory before installing the new copy.
+To upgrade, save your project and close Gephi, extract the new release into a fresh directory, and run `py -3.12 scripts/setup.py --configure-codex --replace-gephi-connection --dry-run`. Review the preview, then repeat without `--dry-run`. Setup backs up the recognized previous desktop module and the Codex configuration. Add `--mode isolated` to keep using the independent launcher. Restart Gephi and Codex.
 
 Left-drag rotates, right-drag pans, wheel zooms, Ctrl-click changes selection, and double-click focuses a node. Save to a new `.gephi` path to retain the 3D scene. PNG/PDF exports require a writable absolute destination and do not overwrite existing files.
 

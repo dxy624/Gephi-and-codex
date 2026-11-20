@@ -195,8 +195,23 @@ async def check_supply_chain_map(session, client, tmp_path):
     client.command('export_png', workspace, path=str(map_png), width=900, height=700)
     with Image.open(normal_png) as normal, Image.open(map_png) as mapped_image:
         assert ImageChops.difference(normal.convert('RGB'), mapped_image.convert('RGB')).getbbox()
+    appearance = await call('gephi3d_style', {
+        'workspace_id': workspace, 'arrow_scale': 2.2, 'edge_width': 2.5, 'arrows': True,
+    })
+    assert appearance['scene']['style']['arrow_scale'] == 2.2
+    assert appearance['scene']['style']['edge_width'] == 2.5
+    shown = tmp_path/'map-arrows-on.png'
+    client.command('export_png', workspace, path=str(shown), width=900, height=700)
+    assert not (await call('gephi3d_style', {
+        'workspace_id': workspace, 'arrows': False,
+    }))['scene']['style']['arrows']
+    hidden = tmp_path/'map-arrows-off.png'
+    client.command('export_png', workspace, path=str(hidden), width=900, height=700)
+    with Image.open(shown) as on, Image.open(hidden) as off:
+        assert ImageChops.difference(on.convert('RGB'), off.convert('RGB')).getbbox()
     restored = (await call('gephi3d_geography', {**toggle, 'enabled': False}))['scene']
     assert restored['visible_nodes'] == 4 and restored['camera'] == original['camera']
+    assert not restored['style']['arrows'] and restored['style']['arrow_scale'] == 2.2
 
 
 async def check_api_import(session,client,tmp_path,previous):

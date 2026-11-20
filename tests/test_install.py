@@ -98,6 +98,24 @@ def test_existing_connection_switches_with_explicit_backup(tmp_path, monkeypatch
         'GEPHI3D_TOKEN_FILE': str(desktop_profile()/'config/gephi3d-token'),
     }
 
+
+def test_known_desktop_upgrade_backs_up_previous_module(tmp_path, monkeypatch):
+    profile = tmp_path/'Desktop profile'
+    assert install_profile(profile, desktop=True)
+    module = profile/'modules/org-gephi-plugins-explorer3d.jar'
+    current = module.read_bytes()
+    old = b'module from the previous installer'
+    module.write_bytes(old)
+    monkeypatch.setattr('common.PREVIOUS_DESKTOP_MODULE', hashlib.sha256(old).hexdigest())
+    before = tree(profile)
+    assert install_profile(profile, desktop=True, dry_run=True)
+    assert tree(profile) == before
+    assert install_profile(profile, desktop=True)
+    assert module.read_bytes() == current
+    backups = list((profile/'gephi3d-backups').glob('*.jar'))
+    assert len(backups) == 1 and backups[0].read_bytes() == old
+    assert not install_profile(profile, desktop=True)
+
 def test_occupied_port_is_not_reused(tmp_path):
     # Use the designated test port, and skip rather than touching existing apps.
     with socket.socket() as server:
@@ -125,4 +143,7 @@ def test_recognized_old_instance_is_not_reused_or_stopped(tmp_path,monkeypatch):
         with pytest.raises(RuntimeError, match='Save your work and close it normally'):
             running_instance(tmp_path,8183)
         monkeypatch.setattr('urllib.request.urlopen',lambda *a,**k:BytesIO(b'{"success":true,"version":"0.1.3-alpha","capabilities":["import_graph","geography"]}'))
+        with pytest.raises(RuntimeError, match='Save your work and close it normally'):
+            running_instance(tmp_path,8183)
+        monkeypatch.setattr('urllib.request.urlopen',lambda *a,**k:BytesIO(b'{"success":true,"version":"0.1.4-alpha","capabilities":["import_graph","geography","arrow_style"]}'))
         assert running_instance(tmp_path,8183) is True
