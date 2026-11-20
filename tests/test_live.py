@@ -15,7 +15,9 @@ import networkx as nx
 ROOT=Path(__file__).resolve().parents[1]
 sys.path[:0]=[str(ROOT/'bridge'),str(ROOT/'scripts')]
 from gephi3d_client import Gephi3D
-from common import resolve_gephi,resolve_java,install_module,launch_command,endpoint
+from common import (desktop_profile, endpoint, install_module, install_profile, launch_command,
+                    resolve_gephi, resolve_java)
+from configure_codex import configure
 
 pytestmark=pytest.mark.live
 
@@ -31,7 +33,7 @@ def wait_for(client,predicate,timeout=45):
 
 def test_isolated_end_to_end(tmp_path,request):
     gephi=resolve_gephi(request.config.getoption('--gephi'));java=resolve_java(gephi)
-    port=8183
+    port=request.config.getoption('--gephi-test-port')
     # Binding failure is a hard precondition failure; never reuse a user process.
     with socket.socket() as probe:probe.bind(('127.0.0.1',port))
     state=tmp_path/'Gephi 测试 state';install_module(state)
@@ -75,6 +77,57 @@ def test_isolated_end_to_end(tmp_path,request):
         for key in ['nodes','edges','yaw','pitch','distance','bookmarks','selection','highlight','layerAttribute']:
             assert imported_before[key]==imported_after[key],key
     finally:stop()
+
+def test_desktop_launcher_draws_through_configured_bridge(tmp_path, request, monkeypatch):
+    gephi = resolve_gephi(request.config.getoption('--gephi'))
+    port = request.config.getoption('--gephi-test-port')
+    with socket.socket() as probe:
+        if hasattr(socket, 'SO_EXCLUSIVEADDRUSE'):
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        probe.bind(('127.0.0.1', port))
+    monkeypatch.setenv('APPDATA', str(tmp_path/'桌面用户 Roaming'))
+    profile = desktop_profile()
+    install_profile(profile, desktop=True)
+    preview = configure(tmp_path/'Codex test', sys.executable, tmp_path/'isolated', 8183,
+                        configure_mcp=True, dry_run=True, mode='desktop')
+    entry = preview['mcp']
+    # Use a free port for this temporary desktop profile when the real client is already open.
+    env = {**entry['env'], 'GEPHI3D_URL': endpoint(port)}
+    client = Gephi3D(env['GEPHI3D_URL'], env['GEPHI3D_TOKEN_FILE'])
+    launcher = gephi/'bin/gephi64.exe'
+    startupinfo = subprocess.STARTUPINFO()
+    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    startupinfo.wShowWindow = 0
+    process = subprocess.Popen(
+        [str(launcher), '--userdir', str(profile), '--cachedir', str(tmp_path/'桌面缓存'),
+         f'-J-Dgephi3d.port={port}', '--nosplash'],
+        cwd=launcher.parent, startupinfo=startupinfo,
+    )
+
+    async def draw():
+        from mcp import ClientSession, StdioServerParameters
+        from mcp.client.stdio import stdio_client
+        connection = StdioServerParameters(command=entry['command'], args=entry['args'], env=env)
+        async with stdio_client(connection) as (reader, writer):
+            async with ClientSession(reader, writer) as session:
+                await session.initialize()
+                drawn = await session.call_tool('gephi3d_auto_draw', {'nodes': 60, 'communities': 3})
+                assert not drawn.is_error, drawn.content
+                result = await session.call_tool('gephi3d_status', {})
+                assert not result.is_error, result.content
+                state = json.loads(result.content[0].text)
+                assert state['scene']['nodes'] == 60
+                assert state['scene']['style']['arrows'] and state['layout']['state'] == 'completed'
+
+    try:
+        wait_for(client, lambda state: 'geography' in state['capabilities'])
+        assert (profile/'var/log/messages.log').is_file()
+        asyncio.run(asyncio.wait_for(draw(), 50))
+    finally:
+        if process.poll() is None:
+            process.terminate()
+            process.wait(timeout=15)
+
 
 async def check_mcp(client,tmp_path):
     from mcp import ClientSession,StdioServerParameters

@@ -8,7 +8,7 @@ import tomllib
 import pytest
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts'))
-from common import ROOT,NBM,install_module,resolve_gephi,resolve_java,running_instance
+from common import NBM, desktop_profile, install_module, install_profile, running_instance
 from configure_codex import configure
 from build import verify
 
@@ -46,6 +46,57 @@ def test_nbm_and_exact_module_extraction(tmp_path):
     state=tmp_path/'运行 数据';install_module(state)
     before=tree(state);assert len(before)==2
     install_module(state);assert tree(state)==before
+
+def test_desktop_install_preview_and_conflicts(tmp_path, monkeypatch):
+    roaming = tmp_path/'用户资料 Roaming'
+    monkeypatch.setenv('APPDATA', str(roaming))
+    profile = desktop_profile()
+    assert profile == roaming/'gephi/0.11'
+    assert install_profile(profile, desktop=True, dry_run=True)
+    assert not roaming.exists()
+    profile.mkdir(parents=True)
+    lock = profile/'lock'
+    lock.touch()
+    with pytest.raises(RuntimeError, match='Save and close desktop Gephi'):
+        install_profile(profile, desktop=True)
+    assert list(profile.iterdir()) == [lock]
+    lock.unlink()
+    assert install_profile(profile, desktop=True)
+    before = tree(profile)
+    assert len(before) == 2
+    assert not install_profile(profile, desktop=True)
+    assert tree(profile) == before
+    xml = profile/'config/Modules/org-gephi-plugins-explorer3d.xml'
+    xml.write_bytes(b'previous module')
+    before = tree(profile)
+    with pytest.raises(RuntimeError, match='existing desktop plugin file differs'):
+        install_profile(profile, desktop=True)
+    assert tree(profile) == before
+
+def test_existing_connection_switches_with_explicit_backup(tmp_path, monkeypatch):
+    home = tmp_path/'Codex config'
+    home.mkdir()
+    config = home/'config.toml'
+    config.write_text('[mcp_servers.other]\ncommand = "other tool"\n', encoding='utf-8')
+    state = tmp_path/'independent'
+    python = Path(sys.executable)
+    monkeypatch.setenv('APPDATA', str(tmp_path/'桌面 AppData'))
+    configure(home, python, state, 8184, configure_mcp=True)
+    original = config.read_bytes()
+    with pytest.raises(RuntimeError, match='configuration differs'):
+        configure(home, python, state, 8183, configure_mcp=True, mode='desktop')
+    preview = configure(home, python, state, 8183, configure_mcp=True, mode='desktop',
+                        replace_connection=True, dry_run=True)
+    assert preview['config_change'] and config.read_bytes() == original
+    result = configure(home, python, state, 8183, configure_mcp=True, mode='desktop',
+                       replace_connection=True)
+    assert Path(result['backup']).read_bytes() == original
+    settings = tomllib.loads(config.read_text(encoding='utf-8'))['mcp_servers']
+    assert settings['other'] == {'command': 'other tool'}
+    assert settings['gephi-3d']['env'] == {
+        'GEPHI3D_URL': 'http://127.0.0.1:8183',
+        'GEPHI3D_TOKEN_FILE': str(desktop_profile()/'config/gephi3d-token'),
+    }
 
 def test_occupied_port_is_not_reused(tmp_path):
     # Use the designated test port, and skip rather than touching existing apps.

@@ -1,6 +1,6 @@
 # Gephi 3D Explorer
 
-**v0.1.3-alpha · Windows · Gephi 0.11.3**
+**v0.1.4-alpha · Windows · Gephi 0.11.3 / 0.11.4**
 
 在 Gephi 内旋转、分层和探索三维网络，也可让 Codex 用中文控制同一个视图。此仓库包含 Gephi 插件、独立 MCP 服务和 `gephi-3d` Skill，三者配合使用。
 
@@ -8,11 +8,11 @@
 
 ![合成网络三维视图](docs/assets/preview.png)
 
-**English:** An experimental dockable 3D network explorer for Gephi 0.11.3 on Windows, controlled through mouse interaction or Codex MCP tools. Includes a Gephi module, a Python MCP bridge and an Agent Skill. This is an Alpha release; the example network is synthetic. See [English quick start](docs/QUICKSTART.en.md).
+**English:** An experimental dockable 3D network explorer for Gephi on Windows with a Codex skill and MCP tools. Open Gephi from its regular desktop shortcut, or choose the independent launcher. See the [English quick start](docs/QUICKSTART.en.md).
 
 ## 1. 安装前置软件
 
-- [Gephi 0.11.3](https://github.com/gephi/gephi/releases/tag/v0.11.3) Windows 版。
+- Windows 版 [Gephi 0.11.4](https://github.com/gephi/gephi/releases/tag/v0.11.4) 或 [Gephi 0.11.3](https://github.com/gephi/gephi/releases/tag/v0.11.3)。
 - [Python 3.12](https://www.python.org/downloads/windows/)；安装时包含 Python Launcher。
 - 已安装 Codex。此插件本身不需要 OpenAI API Key；Codex 按其自身登录和使用规则运行。
 
@@ -22,7 +22,7 @@
 
 ## 2. 安装插件与连接
 
-在解压目录中打开 PowerShell，先预览：
+保存已打开的 Gephi 工程并正常退出桌面客户端。在解压目录中打开 PowerShell，预览安装：
 
 ```powershell
 py -3.12 scripts/setup.py --install-skill --configure-codex --dry-run
@@ -34,25 +34,31 @@ py -3.12 scripts/setup.py --install-skill --configure-codex --dry-run
 py -3.12 scripts/setup.py --install-skill --configure-codex
 ```
 
-安装会建立本项目的 `.venv`、安装依赖、安装个人技能并新增 `gephi-3d` MCP 配置。已有同名但内容不同的技能或连接会报告冲突，不会直接覆盖。修改配置前会备份到 Codex 用户目录的 `backups` 中，其他配置保留。
+默认安装到桌面 Gephi 的用户目录 `%APPDATA%\gephi\0.11`。安装会建立本项目的 `.venv` 并安装依赖。两个显式选项分别安装 Skill 和配置 Codex。修改 Codex 配置前会备份到其用户目录下的 `backups`。
 
 Gephi 不在默认位置时指定安装目录；目录应包含 `gephi` 和 `platform` 子目录：
 
 ```powershell
-py -3.12 scripts/setup.py --gephi "D:\Apps\Gephi-0.11.3" --install-skill --configure-codex
+py -3.12 scripts/setup.py --gephi "D:\Apps\Gephi-0.11.4" --install-skill --configure-codex
 ```
 
-也可设置 `GEPHI_HOME`。只准备运行环境、不修改个人 Codex：运行不带 `--install-skill --configure-codex` 的安装命令。
+也可设置 `GEPHI_HOME`。只安装桌面插件和运行依赖时，运行 `py -3.12 scripts/setup.py`。
 
 安装成功后重新打开 Codex。Skill 的安装与 MCP/Gephi 的安装是不同步骤；仅从 GitHub 安装 Skill 不能获得完整运行环境。[Codex 技能](https://developers.openai.com/codex/skills) · [MCP 配置](https://developers.openai.com/codex/mcp)
 
-已有旧版时，先保存工作并关闭旧 Gephi。把新版解压到独立目录，运行 `py -3.12 scripts/setup.py` 准备新版依赖。如果安装器报告已有不同的技能或连接，先备份原技能或配置，再按预览信息更新 `gephi-3d` 这一项。新版启动器只从当前目录的 NBM 安装模块。
+### 从旧发行版切换到桌面客户端
+
+将新版解压到新目录。如果安装器提示 `gephi-3d` 已指向旧发行版，先加 `--dry-run` 预览下方命令，确认后执行。它会备份并替换这一个连接。
+
+```powershell
+py -3.12 scripts/setup.py --configure-codex --replace-gephi-connection
+```
+
+如果还需要安装新版 Skill，把已有的 `skills/gephi-3d` 文件夹移到 Codex 技能目录之外作为备份，再运行带 `--install-skill` 的安装命令。若提示普通 Gephi 已装有不同的 3D Explorer 模块，先在 Gephi 插件管理器里检查该模块。安装包内的 [NBM](dist/gephi-3d-explorer-0.1.3.nbm) 也可通过插件管理器安装。
 
 ## 3. 启动
 
-双击根目录 **Start-Gephi-3D.cmd**。启动程序会从附带的 [NBM](dist/gephi-3d-explorer-0.1.3.nbm) 中安装本模块到独立配置，并打开 Gephi。
-
-默认本地服务为 `127.0.0.1:8184`，运行数据和日志在 `%LOCALAPPDATA%\Gephi3DExplorer`。同一实例已运行时复用其窗口；端口被其他实例占用时报告冲突，不关闭其他进程。正常关闭 Gephi 窗口即可退出。
+双击桌面 **Gephi** 图标，或从 Windows 开始菜单打开 Gephi。保持客户端打开，再向 Codex 下达绘图指令。桌面客户端的插件接口默认使用本机端口 `8183`。
 
 如面板未显示，进入 **窗口 → 3D Explorer · 三维探索**。
 
@@ -65,6 +71,16 @@ py -3.12 scripts/setup.py --gephi "D:\Apps\Gephi-0.11.3" --install-skill --confi
 | 双击节点 | 聚焦 |
 | Shift 拖动 | 按屏幕矩形框选；Ctrl 可追加 |
 | 悬停 | 查看节点简要属性 |
+
+### 可选独立模式
+
+如希望 Codex 连接独立 Gephi，运行以下命令，再双击 **Start-Gephi-3D.cmd** 并重新打开 Codex。已有桌面连接时，确认要切换后加 `--replace-gephi-connection`。
+
+```powershell
+py -3.12 scripts/setup.py --mode isolated --install-skill --configure-codex
+```
+
+独立模式默认使用本机端口 `8184`，运行数据和日志位于 `%LOCALAPPDATA%\Gephi3DExplorer`。独立入口可以随时打开。Codex 控制安装时选定的实例。
 
 ## 4. 用中文绘图
 
@@ -80,7 +96,7 @@ py -3.12 scripts/setup.py --gephi "D:\Apps\Gephi-0.11.3" --install-skill --confi
 
 导入上限为 20 MB、10000 节点、100000 边；不支持动态图或嵌套 GEXF 节点，行政层级可使用普通节点、parent 属性和有向边表示。错误文件不会覆盖已有图。
 
-若运行中的是旧插件，先保存工作并正常关闭 Gephi，再通过新版启动入口打开。更新后重开 Codex，即可加载 28 个 MCP 工具。
+升级后重新打开所选模式的 Gephi 和 Codex，即可加载 28 个 MCP 工具。
 
 要一次完成导入、布局、配色和展示，可让 Codex 调用 `gephi3d_auto_draw`。它能直接读带节点表和连接表的 XLSX，或读静态 GEXF；按社区配色，用权重控制线宽，有向边才显示箭头。没有数据时，可以明确要求生成合成例子。
 
@@ -98,7 +114,7 @@ py -3.12 scripts/setup.py --gephi "D:\Apps\Gephi-0.11.3" --install-skill --confi
 
 这是可运行原型，仍缺完整筛选面板、层隐藏控件、任意属性配色和完整论文图例编辑；当前以 MCP 完成筛选与部分样式调整。框选暂不显示拖拽矩形，标签数量有限。无时间动画、SVG 或三轴拖拽编辑，JSON 快照暂不能导回。
 
-只验证 Windows＋Gephi 0.11.3。9,000 节点 / 36,000 边曾在 Intel 集成显卡、1920×1080 短时离屏旋转中约为 62 FPS；这不是持续交互性能承诺，也未验证独立显卡。保存恢复、布局取消、数据转换和工具调用的记录见 [验收说明](docs/VALIDATION.md)。
+本次桌面安装针对 Windows，先前的三维模块在 Gephi 0.11.3 上完成验收。当前发布的实测版本和项目见 [验收说明](docs/VALIDATION.md)。
 
 ## 开发与发布
 

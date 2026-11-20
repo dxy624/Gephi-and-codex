@@ -44,6 +44,6 @@ description: 通过插件接口用自然语言控制 Gephi 3D Explorer，生成�
 
 ## 连接恢复
 
-安装需要整个发行包，只有 Skill 不会安装插件与 MCP。请用户从发行目录运行 `Start-Gephi-3D.cmd`；需要显示面板可直接调用 `gephi3d_open`，不必接管桌面。默认独立实例端口 8184，普通配置安装 NBM 默认 8183，以实际配置为准。
+完整安装需要发行包中的插件和 MCP。按实际配置提示用户启动对应 Gephi。桌面模式从 Windows 桌面或开始菜单打开 Gephi，默认端口 8183。独立模式运行 `Start-Gephi-3D.cmd`，默认端口 8184。用 `gephi3d_open` 打开面板，或让用户在「窗口」菜单选择「3D Explorer · 三维探索」。
 
 URL 与 `GEPHI3D_TOKEN_FILE` 必须属于同一实例。token 由本机插件生成，不展示、不上传。旧插件需先保存工作、正常关闭后再启动新版；Codex 未发现新增工具时重新加载 MCP/重开 Codex。保留当前图，不生成新图试探连接。

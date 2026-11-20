@@ -17,7 +17,7 @@
 .venv/Scripts/python.exe -m pytest -q --run-live --gephi "D:\Apps\Gephi-0.11.3"
 ```
 
-测试在临时目录创建专用 profile，使用 **8183**；端口占用会失败。测试会创建合成图、保存和重新打开工程，并检查中文搜索、三维状态、28 个 MCP 工具、6000×4000 PNG 和 PDF。测试结束只终止自己创建的 Java 进程。
+测试在临时目录创建专用配置，分别用桌面客户端程序和独立启动方式验收。默认测试端口是 8183。若桌面 Gephi 正占用此端口，可用 `--gephi-test-port 8184` 并确保该端口空闲。测试结束只关闭自己启动的进程。测试会创建合成图、保存和重新打开工程，并检查中文搜索、三维状态、28 个 MCP 工具、6000×4000 PNG 和 PDF。
 
 导入测试从 MCP 发送中文路径的静态 GEXF，核对属性、颜色、XYZ、方向和零权重，拒绝格式错误、重复 ID、缺失端点及外部实体，并检查旧工作区仍保存在工程中。测试使用插件状态与离屏导出，不调用桌面控制。传输测试覆盖连接失败、认证失败、超时不重试和旧插件能力检查。
 
@@ -34,7 +34,7 @@ py -3.12 scripts/build.py --verify-only
 
 ## 自定义路径
 
-setup/run_dev 接受 `--state-dir`，默认 `%LOCALAPPDATA%\Gephi3DExplorer`；运行目录可通过 `GEPHI3D_STATE_DIR` 指定。setup/configure_codex 接受 `--codex-home`，默认 `CODEX_HOME` 或用户的 `.codex`。支持的本地端口为 8183/8184，默认 8184；改端口时同时更新安装生成的 MCP 环境配置。
+桌面模式默认使用 `%APPDATA%\gephi\0.11` 和 8183。独立模式接受 `--state-dir`，默认 `%LOCALAPPDATA%\Gephi3DExplorer`，也可通过 `GEPHI3D_STATE_DIR` 指定。独立模式使用 8184，可通过 `--port` 改为 8183，并保持安装与启动的端口一致。setup/configure_codex 接受 `--codex-home`，默认由 `CODEX_HOME` 或用户的 `.codex` 决定。
 
 高级用户也可通过普通 Gephi 插件管理器安装 NBM，此时默认端口为 8183，MCP token_file 必须指向该 Gephi 用户目录的 `config/gephi3d-token`。不要把 token 或完整个人配置加入版本控制。
 

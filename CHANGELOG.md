@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.4-alpha — 2026-11-20
+
+- Install the Gephi module for the current Windows user by default. Start Gephi from its desktop or Start menu shortcut to draw with Codex.
+- Keep the independent launcher and add an explicit mode for connecting Codex to it.
+- Preview and back up explicit connection replacements when switching installations or modes. The bundled Gephi module version is 0.1.3.
+
 ## v0.1.3-alpha — 2026-11-20
 
 - Add an optional, per-workspace geographic view with a manual toggle that defaults to off. Restore the ordinary layout and camera when switching back.

@@ -2,6 +2,7 @@
 from __future__ import annotations
 import os
 from pathlib import Path
+from tempfile import TemporaryDirectory
 import re
 import socket
 import subprocess
@@ -12,23 +13,32 @@ from zipfile import ZipFile
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULE_VERSION = '0.1.3'
-RELEASE_TAG = f'v{MODULE_VERSION}-alpha'
+RELEASE_TAG = 'v0.1.4-alpha'
 NBM = ROOT / 'dist' / f'gephi-3d-explorer-{MODULE_VERSION}.nbm'
 MODULE = 'org-gephi-plugins-explorer3d'
+DESKTOP_PORT = 8183
+ISOLATED_PORT = 8184
+
+def desktop_profile():
+    roaming = Path(os.environ.get('APPDATA', Path.home()/'AppData/Roaming'))
+    return (roaming/'gephi/0.11').resolve()
 
 def runtime_dir(value=None):
     return Path(value or os.environ.get('GEPHI3D_STATE_DIR') or Path(os.environ.get('LOCALAPPDATA', Path.home()/'AppData/Local'))/'Gephi3DExplorer').expanduser().resolve()
 
 def resolve_gephi(value=None):
     explicit = value or os.environ.get('GEPHI_HOME')
-    candidates = [Path(explicit).expanduser()] if explicit else [Path(os.environ.get(key, fallback))/'Gephi-0.11.3' for key,fallback in [('ProgramFiles',r'C:\Program Files'),('ProgramFiles(x86)',r'C:\Program Files (x86)')]]
+    roots = (os.environ.get('ProgramFiles', r'C:\Program Files'),
+             os.environ.get('ProgramFiles(x86)', r'C:\Program Files (x86)'))
+    candidates = ([Path(explicit).expanduser()] if explicit else
+                  [Path(root)/name for name in ('Gephi-0.11.4', 'Gephi-0.11.3', 'Gephi') for root in roots])
     for path in candidates:
         api = path/'gephi/modules/org-gephi-graph-api.jar'
         if not api.is_file(): continue
         with ZipFile(api) as jar:
             manifest=jar.read('META-INF/MANIFEST.MF').decode().replace('\r','')
-        if re.search(r'^OpenIDE-Module-Specification-Version: 0\.11\.3$',manifest,re.M): return path.resolve()
-    raise RuntimeError('Gephi 0.11.3 not found. Use --gephi "installation folder" or set GEPHI_HOME.')
+        if re.search(r'^OpenIDE-Module-Specification-Version: 0\.11\.[34]$',manifest,re.M): return path.resolve()
+    raise RuntimeError('Gephi 0.11.3 or 0.11.4 not found. Use --gephi "installation folder" or set GEPHI_HOME.')
 
 def resolve_java(gephi, jdk=None, compiler=False):
     explicit=jdk or (os.environ.get('JAVA_HOME') if compiler else None)
@@ -73,15 +83,56 @@ def running_instance(state,port):
     raise RuntimeError(f'Port {port} is occupied by another instance/service. Close it yourself or explicitly choose the other supported port; nothing was stopped.')
 
 def install_module(state,nbm=NBM):
-    """Install only two explicitly named module files into the isolated profile."""
-    destinations={f'netbeans/modules/{MODULE}.jar':state/f'profile/modules/{MODULE}.jar',f'netbeans/config/Modules/{MODULE}.xml':state/f'profile/config/Modules/{MODULE}.xml'}
+    install_profile(state/'profile', nbm)
+
+def install_profile(profile, nbm=NBM, *, desktop=False, dry_run=False):
+    """Install the two named NBM files and keep existing desktop modules intact."""
+    members = (f'modules/{MODULE}.jar', f'config/Modules/{MODULE}.xml')
     with ZipFile(nbm) as archive:
         if archive.testzip(): raise RuntimeError('Corrupt NBM')
-        for member,destination in destinations.items():
-            data=archive.read(member)
-            if destination.exists() and destination.read_bytes()==data: continue
-            destination.parent.mkdir(parents=True,exist_ok=True)
+        contents = {profile/member: archive.read('netbeans/'+member) for member in members}
+    pending = {}
+    for destination, data in contents.items():
+        if destination.exists():
+            if destination.read_bytes() == data:
+                continue
+            if desktop:
+                raise RuntimeError(f'An existing desktop plugin file differs: {destination}. '
+                                   'Review the 3D Explorer installation in Gephi before continuing.')
+        pending[destination] = data
+
+    if not pending:
+        return False
+    if desktop and (profile/'lock').exists():
+        raise RuntimeError('Save and close desktop Gephi normally before installing the plugin, then rerun setup.')
+    if dry_run:
+        return True
+
+    if not desktop:
+        for destination, data in pending.items():
+            destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes(data)
+        return True
+
+    profile.mkdir(parents=True, exist_ok=True)
+    written = []
+    with TemporaryDirectory(prefix='gephi3d-install-', dir=profile) as staging:
+        for destination, data in pending.items():
+            (Path(staging)/destination.name).write_bytes(data)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+        if (profile/'lock').exists():
+            raise RuntimeError('Desktop Gephi started during setup. Close it normally and rerun setup.')
+        try:
+            for destination in pending:
+                # A Windows rename fails if an installer created the destination in the meantime.
+                (Path(staging)/destination.name).rename(destination)
+                written.append(destination)
+        except OSError:
+            for destination in written:
+                if destination.is_file() and destination.read_bytes() == pending[destination]:
+                    destination.unlink()
+            raise
+    return True
 
 def launch_command(gephi,java,state,port,project=None):
     args=[str(java),'-Xmx3g','--add-opens=java.base/java.net=ALL-UNNAMED','--add-opens=java.desktop/javax.swing=ALL-UNNAMED','--add-opens=java.base/java.nio=ALL-UNNAMED','--add-exports=java.desktop/sun.awt=ALL-UNNAMED','-Dsun.java2d.noddraw=true','-Dsun.awt.noerasebackground=true',f'-Dgephi3d.port={port}',f'-Dnetbeans.home={gephi}/platform',f'-Dnetbeans.dirs={gephi}/gephi',f'-Dnetbeans.user={state}/profile','-cp',os.pathsep.join(str(p) for p in sorted((gephi/'platform/lib').glob('*.jar'))),'org.netbeans.Main','--branding','gephi','--nosplash']

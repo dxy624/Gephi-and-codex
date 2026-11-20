@@ -1,6 +1,6 @@
 @echo off
 if not exist "%~dp0.venv\Scripts\pythonw.exe" (
-  echo Please run: py -3.12 scripts\setup.py --install-skill --configure-codex
+  echo For independent mode, run: py -3.12 scripts\setup.py --mode isolated --install-skill --configure-codex
   pause
   exit /b 1
 )
