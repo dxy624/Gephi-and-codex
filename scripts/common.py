@@ -11,7 +11,9 @@ import errno
 from zipfile import ZipFile
 
 ROOT = Path(__file__).resolve().parents[1]
-NBM = ROOT / 'dist/gephi-3d-explorer-0.1.1.nbm'
+MODULE_VERSION = '0.1.3'
+RELEASE_TAG = f'v{MODULE_VERSION}-alpha'
+NBM = ROOT / 'dist' / f'gephi-3d-explorer-{MODULE_VERSION}.nbm'
 MODULE = 'org-gephi-plugins-explorer3d'
 
 def runtime_dir(value=None):
@@ -63,8 +65,8 @@ def running_instance(state,port):
         try:
             with urllib.request.urlopen(request,timeout=3) as response:
                 health=json.load(response)
-                if health.get('success') and health.get('version') in {'0.1.0-alpha','0.1.1-alpha'}:
-                    if 'import_graph' not in health.get('capabilities',[]):
+                if health.get('success') and re.fullmatch(r'\d+\.\d+\.\d+-alpha', health.get('version', '')):
+                    if 'geography' not in health.get('capabilities', []):
                         raise RuntimeError('This is an older Gephi 3D instance. Save your work and close it normally, then launch the updated version; no process was stopped.')
                     return True
         except (OSError,ValueError): pass

@@ -82,8 +82,10 @@ async def check_mcp(client,tmp_path):
     params=StdioServerParameters(command=sys.executable,args=['-X','utf8',str(ROOT/'bridge/server.py')],env=dict(os.environ,GEPHI3D_URL=client.url,GEPHI3D_TOKEN_FILE=str(client.token_file)))
     async with stdio_client(params) as (reader,writer):
         async with ClientSession(reader,writer) as session:
-            await session.initialize();listed=await session.list_tools();assert len(listed.tools)==25
-            assert 'gephi3d_import_graph' in {tool.name for tool in listed.tools}
+            await session.initialize();listed=await session.list_tools();assert len(listed.tools)==28
+            assert {'gephi3d_import_graph', 'gephi3d_auto_draw', 'gephi3d_geography', 'gephi3d_supply_chain_map'} <= {
+                tool.name for tool in listed.tools
+            }
             result=await session.call_tool('gephi3d_status',{});assert not result.is_error
             state=json.loads(result.content[0].text);w=state['scene']['workspace_id']
             result=await session.call_tool('gephi3d_search',{'workspace_id':w,'query':'12'});assert not result.is_error and json.loads(result.content[0].text)['matches']
@@ -93,7 +95,55 @@ async def check_mcp(client,tmp_path):
             with Image.open(output) as image:
                 assert image.size==(6000,4000) and len(image.resize((120,80)).getcolors(9600))>10
             assert output.with_suffix('.pdf').read_bytes().startswith(b'%PDF-') and Path(str(output)+'.scene.json').is_file()
-            return await check_api_import(session,client,tmp_path,w)
+            imported = await check_api_import(session,client,tmp_path,w)
+            await check_supply_chain_map(session, client, tmp_path)
+            return imported
+
+
+async def check_supply_chain_map(session, client, tmp_path):
+    import pandas as pd
+    from PIL import Image, ImageChops
+
+    data = tmp_path / '供应链示例.dta'
+    pd.DataFrame({
+        'source': ['001', '002', '001'], 'target': ['002', '003', '004'],
+        'source_city_code': [320100, 340100, 320100], 'target_city_code': [340100, 110000, 999999],
+        'source_community': ['甲', '甲', '甲'], 'target_community': ['甲', '乙', '乙'],
+        'weight': [10, 3, 1],
+    }).to_stata(data, write_index=False, version=118)
+    cities = tmp_path / '城市表.csv'
+    cities.write_text('city_code,city_name,longitude,latitude\n320100,南京,118.8,32.06\n'
+                      '340100,合肥,117.23,31.82\n110000,北京,116.4,39.9\n', encoding='utf-8')
+    map_file = tmp_path / 'synthetic-boundary.geojson'
+    map_file.write_text(json.dumps({
+        'type': 'Polygon', 'coordinates': [[[109, 27], [124, 27], [124, 43], [109, 43], [109, 27]]],
+    }), encoding='utf-8')
+
+    async def call(name, arguments):
+        result = await session.call_tool(name, arguments)
+        assert not result.is_error, result.content
+        return json.loads(result.content[0].text)
+
+    prepared = await call('gephi3d_supply_chain_map', {
+        'path': str(data), 'basemap': str(map_file), 'city_table': str(cities),
+        'leader_ids': ['001'], 'basemap_source': 'Synthetic test geometry', 'synthetic': True,
+    })
+    assert prepared['geography']['matched_firms'] == 3 and not prepared['geography']['enabled']
+    assert prepared['geography']['leader_communities'] == ['甲']
+    assert prepared['geography']['unmatched_codes'] == {'999999': 1}
+    workspace = prepared['workspace_id']
+    original = client.state()['scene']
+    normal_png = tmp_path / 'normal.png'
+    client.command('export_png', workspace, path=str(normal_png), width=900, height=700)
+    toggle = {'workspace_id': workspace, 'enabled': True}
+    mapped = (await call('gephi3d_geography', toggle))['scene']
+    assert mapped['geography']['enabled'] and mapped['visible_nodes'] == 3
+    map_png = tmp_path / 'map.png'
+    client.command('export_png', workspace, path=str(map_png), width=900, height=700)
+    with Image.open(normal_png) as normal, Image.open(map_png) as mapped_image:
+        assert ImageChops.difference(normal.convert('RGB'), mapped_image.convert('RGB')).getbbox()
+    restored = (await call('gephi3d_geography', {**toggle, 'enabled': False}))['scene']
+    assert restored['visible_nodes'] == 4 and restored['camera'] == original['camera']
 
 
 async def check_api_import(session,client,tmp_path,previous):

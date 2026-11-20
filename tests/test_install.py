@@ -8,7 +8,7 @@ import tomllib
 import pytest
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts'))
-from common import ROOT,install_module,resolve_gephi,resolve_java,running_instance
+from common import ROOT,NBM,install_module,resolve_gephi,resolve_java,running_instance
 from configure_codex import configure
 from build import verify
 
@@ -42,7 +42,7 @@ def test_conflicts_leave_config_and_skill_untouched(tmp_path):
     assert tree(home)==before
 
 def test_nbm_and_exact_module_extraction(tmp_path):
-    assert len(verify(ROOT/'dist/gephi-3d-explorer-0.1.1.nbm'))==64
+    assert len(verify(NBM))==64
     state=tmp_path/'运行 数据';install_module(state)
     before=tree(state);assert len(before)==2
     install_module(state);assert tree(state)==before
@@ -71,4 +71,7 @@ def test_recognized_old_instance_is_not_reused_or_stopped(tmp_path,monkeypatch):
         monkeypatch.setattr('urllib.request.urlopen',lambda *a,**k:BytesIO(b'{"success":true,"version":"0.1.0-alpha"}'))
         with pytest.raises(RuntimeError,match='Save your work and close it normally'):running_instance(tmp_path,8183)
         monkeypatch.setattr('urllib.request.urlopen',lambda *a,**k:BytesIO(b'{"success":true,"version":"0.1.1-alpha","capabilities":["import_graph"]}'))
+        with pytest.raises(RuntimeError, match='Save your work and close it normally'):
+            running_instance(tmp_path,8183)
+        monkeypatch.setattr('urllib.request.urlopen',lambda *a,**k:BytesIO(b'{"success":true,"version":"0.1.3-alpha","capabilities":["import_graph","geography"]}'))
         assert running_instance(tmp_path,8183) is True

@@ -12,6 +12,11 @@ public final class Scene {
     public boolean synthetic, dark = true, labels = true, isolate;
     public double yaw = .5, pitch = .3, distance = 1200, targetX, targetY, targetZ;
     public boolean perspective = true;
+    public String visualStyle = "classic";
+    public boolean arrows;
+    GeoLayer geography;
+    public boolean geographyEnabled;
+    double[] regularCamera, geographicCamera;
     public double nodeScale = 1, edgeWidth = 1, minWeight = -Double.MAX_VALUE;
     public int minDegree;
     public String communityFilter = "", layerAttribute = "";
@@ -35,9 +40,20 @@ public final class Scene {
         public double weight=1;
         public boolean directed;
     }
-    public Scene copy() { return JSON.fromJson(JSON.toJson(this),Scene.class); }
+    private static final Gson COPY_JSON = new com.google.gson.GsonBuilder()
+        .addSerializationExclusionStrategy(new com.google.gson.ExclusionStrategy() {
+            public boolean shouldSkipField(com.google.gson.FieldAttributes field) {
+                return field.getDeclaringClass() == Scene.class && field.getName().equals("geography");
+            }
+            public boolean shouldSkipClass(Class<?> type) { return false; }
+        }).create();
+    public Scene copy() {
+        Scene copy = COPY_JSON.fromJson(COPY_JSON.toJson(this), Scene.class);
+        copy.geography = geography;
+        return copy;
+    }
     public Vertex find(String id) { for(Vertex n:nodes) if(n.id.equals(id)) return n; throw new IllegalArgumentException("Unknown node: "+id); }
-    public boolean visible(Vertex n) { return n.degree>=minDegree && (communityFilter.isEmpty() || n.community.equals(communityFilter)) && (!isolate || highlight.isEmpty() || highlight.contains(n.id)); }
+    public boolean visible(Vertex n) { return (!geographyEnabled || geography.positions.containsKey(n.id)) && n.degree>=minDegree && (communityFilter.isEmpty() || n.community.equals(communityFilter)) && (!isolate || highlight.isEmpty() || highlight.contains(n.id)); }
     public boolean emphasized(Vertex n) { return selection.contains(n.id) || highlight.contains(n.id); }
     public Map<String,Object> status() {
         Map<String,Object> m=new LinkedHashMap<>();
@@ -46,16 +62,52 @@ public final class Scene {
         m.put("selection",selection);m.put("highlight",highlight);m.put("synthetic",synthetic);m.put("source",source);m.put("template",template);m.put("seed",seed);
         m.put("camera",Map.of("yaw",yaw,"pitch",pitch,"distance",distance,"target",new double[]{targetX,targetY,targetZ},"perspective",perspective));
         m.put("bookmarks",bookmarks.keySet());m.put("layer_attribute",layerAttribute);
+        m.put("style", Map.of("preset", visualStyle, "arrows", arrows, "dark", dark, "labels", labels));
+        if (geography != null) m.put("geography", Map.of("enabled", geographyEnabled,
+            "source", geography.source, "matched_nodes", nodes.stream().filter(n -> geography.positions.containsKey(n.id)).count(),
+            "cities", geography.cities.size(), "leader_communities", geography.communities));
         return m;
     }
     public void fit() {
         if(nodes.isEmpty()) return;
+        if (geographyEnabled) {
+            double[] box = geography.bounds;
+            targetX = (box[0] + box[2]) / 2;
+            targetY = (box[1] + box[3]) / 2;
+            targetZ = 0;
+            distance = Math.max(box[2] - box[0], box[3] - box[1]) * 1.65;
+            return;
+        }
         targetX=nodes.stream().mapToDouble(n->n.x).average().orElse(0);
         targetY=nodes.stream().mapToDouble(n->n.y).average().orElse(0);
         targetZ=nodes.stream().mapToDouble(n->n.z).average().orElse(0);
         double radius=10;
         for(Vertex n:nodes) radius=Math.max(radius,Math.sqrt(sq(n.x-targetX)+sq(n.y-targetY)+sq(n.z-targetZ)));
         distance=radius*3;
+    }
+    double[] cameraValues() {
+        return new double[]{yaw, pitch, distance, targetX, targetY, targetZ, perspective ? 1 : 0};
+    }
+    void restoreCamera(double[] view) {
+        yaw = view[0]; pitch = view[1]; distance = view[2];
+        targetX = view[3]; targetY = view[4]; targetZ = view[5]; perspective = view[6] > 0;
+    }
+    void toggleGeography(boolean enable) {
+        if (enable == geographyEnabled) return;
+        if (enable) {
+            if (geography == null) throw new IllegalArgumentException("Load a city map for this workspace first");
+            regularCamera = cameraValues();
+            geographyEnabled = true;
+            if (geographicCamera == null) {
+                yaw = 0; pitch = 0; perspective = false;
+                fit();
+            } else restoreCamera(geographicCamera);
+        } else {
+            geographicCamera = cameraValues();
+            geographyEnabled = false;
+            if (regularCamera == null) fit();
+            else restoreCamera(regularCamera);
+        }
     }
     static double sq(double x){return x*x;}
     public List<List<Integer>> adjacency(boolean directed) {

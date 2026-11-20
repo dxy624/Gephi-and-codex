@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.3-alpha — 2026-11-20
+
+- Add an optional, per-workspace geographic view with a manual toggle that defaults to off. Restore the ordinary layout and camera when switching back.
+- Match companies by city code using a local GeoJSON basemap and city-coordinate table. Accept Stata `.dta` or CSV edge data, or static GEXF with city-code attributes. Report unmatched codes.
+- Highlight chain leaders and enlarge their communities. Use edge direction for arrowheads and weight for line width.
+- Add one-call 3D drawing from a two-sheet XLSX, static GEXF or a synthetic example, with optional PNG export.
+- Add community, weighted and keyword presets with clearer labels. Persist styles and optional basemaps in Gephi projects.
+
 ## v0.1.1-alpha — 2026-10-21
 
 - Default to plugin API operations; desktop control requires an explicit user request, including when importing or checking the rendered result.
@@ -15,4 +23,4 @@
 - Synthetic community/DAG/hub templates; octree FR layout; project scene persistence; PNG/PDF exports.
 - Portable Windows setup, isolated profile, configuration preview/conflict detection, explicit release manifest and SHA-256 checksums.
 
-The initial release used module specification version `0.1.0`; both distributions are explicitly Alpha. Feature limits and unverified environments are listed in the README.
+Feature limits and verified platforms are listed in the README.

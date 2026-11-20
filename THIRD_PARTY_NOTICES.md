@@ -13,6 +13,7 @@ The project source is under the root MIT license. It uses public APIs and runtim
 | ReportLab | PDF export | [ReportLab](https://www.reportlab.com/), BSD-style |
 | NetworkX | Data conversion and reference calculations | [NetworkX](https://networkx.org/), BSD-3-Clause |
 | openpyxl | XLSX input | [openpyxl](https://openpyxl.readthedocs.io/), MIT |
+| pandas | Stata DTA input | [pandas license](https://github.com/pandas-dev/pandas/blob/main/LICENSE), BSD-3-Clause |
 | tomlkit | Preserve TOML configuration formatting | [tomlkit](https://github.com/python-poetry/tomlkit), MIT |
 
 Dependencies are downloaded by the user's Python package installer and retain their own notices, including transitive dependencies. Development dependencies are declared separately. Gephi-AI is optional and is not bundled, copied or required by this release. Compatibility with Gephi does not imply endorsement by its maintainers.

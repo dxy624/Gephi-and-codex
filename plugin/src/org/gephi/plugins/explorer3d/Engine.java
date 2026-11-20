@@ -51,7 +51,7 @@ public final class Engine {
     void replace(Scene before,Scene after){Workspace w=workspace();w.remove(before);after.revision=before.revision+1;w.add(after);changed.run();}
     void history(boolean backwards){cancel.set(true);Scene s=requireScene();Map<Integer,Deque<Scene>> a=backwards?undo:redo,b=backwards?redo:undo;Deque<Scene> q=a.computeIfAbsent(s.workspaceId,k->new ArrayDeque<>());if(q.isEmpty())throw new IllegalArgumentException("No history available");b.computeIfAbsent(s.workspaceId,k->new ArrayDeque<>()).push(s.copy());replace(s,q.pop());}
     Scene requireScene(){Scene s=scene();if(s==null)throw new IllegalArgumentException("No workspace open. Generate an example or open a project first.");return s;}
-    public Map<String,Object> state(){Scene s=scene();Map<String,Object> result=new LinkedHashMap<>();result.put("success",true);result.put("version","0.1.1-alpha");result.put("capabilities",List.of("import_graph","offscreen_export","no_desktop_input"));result.put("has_workspace",s!=null);result.put("scene",s==null?null:s.status());result.put("layout",Map.of("job_id",jobId,"state",jobState,"iteration",iteration,"error",jobError));result.put("renderer",ExplorerPanel.rendererStatus);return result;}
+    public Map<String,Object> state(){Scene s=scene();Map<String,Object> result=new LinkedHashMap<>();result.put("success",true);result.put("version","0.1.3-alpha");result.put("capabilities",List.of("import_graph","offscreen_export","no_desktop_input","visual_presets","geography"));result.put("has_workspace",s!=null);result.put("scene",s==null?null:s.status());result.put("layout",Map.of("job_id",jobId,"state",jobState,"iteration",iteration,"error",jobError));result.put("renderer",ExplorerPanel.rendererStatus);return result;}
     public Object command(JsonObject j){
         String operation=str(j,"operation","");
         if(Set.of("open","generate","search","node","cancel_layout","save_scene","export_png","benchmark").contains(operation))return commandInternal(j);
@@ -84,7 +84,7 @@ public final class Engine {
             case "refresh":sync(s,workspace());break;
             case "select":s.selection.clear();for(String id:strings(j,"ids")){s.find(id);s.selection.add(id);}break;
             case "focus":{
-                List<String> ids=strings(j,"ids");if(ids.isEmpty())s.fit();else{double x=0,y=0,z=0;for(String id:ids){Scene.Vertex n=s.find(id);x+=n.x;y+=n.y;z+=n.z;}s.targetX=x/ids.size();s.targetY=y/ids.size();s.targetZ=z/ids.size();s.distance=Math.max(70,s.distance*.55);}break;}
+                focus(s,strings(j,"ids"));break;}
             case "camera":s.yaw=num(j,"yaw",s.yaw);s.pitch=Math.max(-1.5,Math.min(1.5,num(j,"pitch",s.pitch)));s.distance=Math.max(20,Math.min(100000,num(j,"distance",s.distance)));s.perspective=bool(j,"perspective",s.perspective);break;
             case "neighbors":s.neighbors(str(j,"id",""),integer(j,"hops",1));s.isolate=bool(j,"isolate",false);break;
             case "path":detail=s.shortestPath(str(j,"source",""),str(j,"target",""),bool(j,"directed",true));s.isolate=bool(j,"isolate",false);break;
@@ -94,12 +94,55 @@ public final class Engine {
             case "pin":for(String id:strings(j,"ids"))s.find(id).pinned=bool(j,"pinned",true);break;
             case "layer":s.layer(str(j,"attribute","community"),num(j,"spacing",160));break;
             case "unlayer":s.layerAttribute="";break;
-            case "style":s.dark=bool(j,"dark",s.dark);s.labels=bool(j,"labels",s.labels);s.nodeScale=Math.max(.2,Math.min(5,num(j,"node_scale",s.nodeScale)));s.edgeWidth=Math.max(.5,Math.min(5,num(j,"edge_width",s.edgeWidth)));break;
+            case "style":applyStyle(s,j);break;
+            case "geography":{
+                String path = str(j,"map_path","");
+                if (!path.isBlank()) {
+                    GeoLayer prepared = GeoLayer.read(path, s);
+                    s.toggleGeography(false);
+                    s.geography = prepared;
+                    s.geographicCamera = null;
+                }
+                s.toggleGeography(bool(j,"enabled",s.geographyEnabled));
+                break;
+            }
             case "bookmark":{String name=str(j,"name","view");if(bool(j,"restore",false)){double[] c=s.bookmarks.get(name);if(c==null)throw new IllegalArgumentException("Unknown bookmark");s.yaw=c[0];s.pitch=c[1];s.distance=c[2];s.targetX=c[3];s.targetY=c[4];s.targetZ=c[5];s.perspective=c[6]>0;}else s.bookmarks.put(name,new double[]{s.yaw,s.pitch,s.distance,s.targetX,s.targetY,s.targetZ,s.perspective?1:0});break;}
             case "layout":startLayout(s,Math.min(1000,Math.max(1,integer(j,"iterations",500))),Math.min(30000,Math.max(100,num(j,"milliseconds",30000))));break;
             default:throw new IllegalArgumentException("Unknown operation: "+op);
         }
         s.revision++;changed.run();Map<String,Object> result=state();if(detail!=null)result.put("result",detail);return result;
+    }
+    private static void focus(Scene scene, List<String> ids) {
+        if (ids.isEmpty()) {
+            scene.fit();
+            return;
+        }
+        double x = 0, y = 0, z = 0;
+        for (String id : ids) {
+            Scene.Vertex node = scene.find(id);
+            double[] position = scene.geographyEnabled ? scene.geography.positions.get(id)
+                : new double[]{node.x, node.y, node.z};
+            if (position == null) throw new IllegalArgumentException("Node has no matched city: " + id);
+            x += position[0]; y += position[1]; z += position[2];
+        }
+        scene.targetX = x / ids.size(); scene.targetY = y / ids.size(); scene.targetZ = z / ids.size();
+        scene.distance = Math.max(70, scene.distance * .55);
+    }
+
+    private static void applyStyle(Scene scene, JsonObject options) {
+        String preset = str(options, "preset", scene.visualStyle);
+        if (!Set.of("classic", "communities", "weighted", "keywords").contains(preset)) {
+            throw new IllegalArgumentException("Style preset must be classic, communities, weighted or keywords");
+        }
+        double nodeScale = Math.max(.2, Math.min(5, num(options, "node_scale", scene.nodeScale)));
+        double edgeWidth = Math.max(.5, Math.min(5, num(options, "edge_width", scene.edgeWidth)));
+        boolean presetChanged = !preset.equals(scene.visualStyle);
+        scene.visualStyle = preset;
+        scene.dark = bool(options, "dark", presetChanged ? preset.equals("classic") : scene.dark);
+        scene.arrows = bool(options, "arrows", presetChanged ? preset.equals("weighted") : scene.arrows);
+        scene.labels = bool(options, "labels", scene.labels);
+        scene.nodeScale = nodeScale;
+        scene.edgeWidth = edgeWidth;
     }
     void startLayout(Scene s,int steps,double ms){
         Scene snapshot=s.copy();AtomicBoolean token=new AtomicBoolean();cancel=token;jobId=UUID.randomUUID().toString();jobState="running";jobError="";iteration=0;

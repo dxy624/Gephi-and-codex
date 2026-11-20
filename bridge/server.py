@@ -7,7 +7,7 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from gephi3d_client import Gephi3D
 
-mcp = MCPServer('gephi-3d', version='0.1.1-alpha', instructions='Use the local Gephi plugin API for graph generation, import, exploration and export. These tools require no desktop input. Report connection/capability failures; do not fall back to desktop control unless the user explicitly requests interface operation. Inspect rendering through plugin exports, not desktop screenshots.')
+mcp = MCPServer('gephi-3d', version='0.1.3-alpha', instructions='Use the local Gephi plugin API for graph generation, import, exploration and export. These tools require no desktop input. Report connection/capability failures; do not fall back to desktop control unless the user explicitly requests interface operation. Inspect rendering through plugin exports, not desktop screenshots.')
 client = Gephi3D()
 
 def gephi_tool():
@@ -30,10 +30,40 @@ def gephi3d_import_graph(path: str, synthetic: bool=False) -> dict:
         raise RuntimeError('The running Gephi plugin does not support API import. Save your work, close Gephi normally, update/restart with the new launcher, and retry. Do not use desktop control as a fallback.')
     return client.command('import_graph', path=path, synthetic=synthetic)
 
+
+@gephi_tool()
+def gephi3d_auto_draw(path: str | None = None, directed: bool | None = None,
+                     nodes: int = 60, communities: int = 3, seed: int = 42,
+                     node_sheet: str = '节点表', edge_sheet: str = '连接表',
+                     png_path: str | None = None, synthetic: bool = False) -> dict:
+    """In one call: read local XLSX or GEXF, create a new workspace, run 3D layout, color by community, set edge width by weight and show arrowheads on directed edges. Open the rotatable view and optionally export an absolute PNG path. Excel needs explicit directed=True or False; existing GEXF directions are preserved. Omit path for a synthetic directed, weighted community demo. Use only when an example is requested or an input path is supplied. Requires plugin 0.1.2+."""
+    from auto_draw import draw
+
+    return draw(client, path, directed=directed, nodes=nodes, communities=communities, seed=seed,
+                node_sheet=node_sheet, edge_sheet=edge_sheet, png_path=png_path, synthetic=synthetic)
+
 @gephi_tool()
 def gephi3d_status() -> dict:
     """Read current workspace, revision, mouse selection, layout job and renderer."""
     return client.state()
+
+
+@gephi_tool()
+def gephi3d_supply_chain_map(path: str, basemap: str, city_table: str, leader_ids: list[str],
+                             basemap_source: str, enabled: bool = False, city_attribute: str = 'city_code',
+                             png_path: str | None = None, synthetic: bool = False) -> dict:
+    """Prepare an optional supply-chain map in a new workspace. Use only when geography is requested. Local geographic polygon GeoJSON and city CSV (city_code,city_name,longitude,latitude) must share a datum. Input is GEXF with a node city-code attribute, or a directed CSV/.dta edge table with source,target,source_city_code,target_city_code and optional weight, source/target names and communities. Explicit leaders are firm IDs. Map stays OFF unless explicitly enabled. Report unmatched cities and any unlocated leaders. Requires plugin 0.1.3+."""
+    from supply_chain_map import draw_supply_chain
+    return draw_supply_chain(client, path, basemap, city_table, leader_ids, basemap_source, enabled,
+                             city_attribute, png_path, synthetic)
+
+
+@gephi_tool()
+def gephi3d_geography(workspace_id: int, enabled: bool) -> dict:
+    """Turn the prepared map on or off in this workspace. Switches between saved geographic and ordinary camera views without moving the original nodes. Requires plugin 0.1.3+."""
+    if 'geography' not in client.state().get('capabilities', []):
+        raise RuntimeError('Restart Gephi with Gephi 3D Explorer 0.1.3 or later')
+    return client.command('geography', workspace_id, enabled=enabled)
 
 @gephi_tool()
 def gephi3d_open() -> dict:
@@ -121,8 +151,13 @@ def gephi3d_bookmark(workspace_id: int, name: str, restore: bool=False) -> dict:
     return client.command('bookmark', workspace_id, name=name, restore=restore)
 
 @gephi_tool()
-def gephi3d_style(workspace_id: int, dark: bool | None=None, labels: bool | None=None, node_scale: float | None=None, edge_width: float | None=None) -> dict:
-    """Adjust background, labels, node scale and line width without resetting layout."""
+def gephi3d_style(workspace_id: int, dark: bool | None=None, labels: bool | None=None,
+                  node_scale: float | None=None, edge_width: float | None=None,
+                  preset: str | None=None, arrows: bool | None=None) -> dict:
+    """Style the current 3D scene without moving nodes. Presets: classic, communities (curved, community-colored edges), weighted (weighted lines and directed arrowheads), keywords (larger labels for well-connected nodes). New presets require plugin 0.1.2+."""
+    if preset is not None or arrows is not None:
+        if 'visual_presets' not in client.state().get('capabilities', []):
+            raise ToolError('The connected Gephi plugin does not support visual presets. Restart with plugin 0.1.2 or later.')
     return client.command('style', workspace_id, **{k:v for k,v in locals().items() if k!='workspace_id' and v is not None})
 
 @gephi_tool()

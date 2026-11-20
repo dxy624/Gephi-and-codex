@@ -1,4 +1,4 @@
-"""Connection failures stay explicit; API import refuses unsupported old plugins."""
+"""Connection failures stay explicit; capability checks protect older plugins."""
 from io import BytesIO
 from pathlib import Path
 import sys
@@ -45,3 +45,31 @@ def test_old_plugin_is_rejected_before_import(monkeypatch):
     monkeypatch.setattr(server,'client',OldPlugin())
     with pytest.raises(ToolError,match='does not support API import'):
         server.gephi3d_import_graph('example.gexf')
+
+
+def test_visual_presets_require_plugin_support(monkeypatch):
+    import server
+
+    class Plugin:
+        capabilities = []
+        calls = []
+
+        def state(self):
+            return {'success': True, 'capabilities': self.capabilities}
+
+        def command(self, operation, workspace_id, **parameters):
+            self.calls.append((operation, workspace_id, parameters))
+            return {'success': True}
+
+    plugin = Plugin()
+    monkeypatch.setattr(server, 'client', plugin)
+    with pytest.raises(ToolError, match='does not support visual presets'):
+        server.gephi3d_style(7, preset='weighted')
+    assert not plugin.calls
+    server.gephi3d_style(7, dark=False)
+    plugin.capabilities = ['visual_presets']
+    server.gephi3d_style(7, preset='weighted', arrows=False)
+    assert plugin.calls == [
+        ('style', 7, {'dark': False}),
+        ('style', 7, {'preset': 'weighted', 'arrows': False}),
+    ]

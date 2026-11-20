@@ -19,6 +19,11 @@ public final class ExplorerPanel extends TopComponent {
     public static volatile String rendererStatus="not initialized";
     final Engine engine=Engine.INSTANCE;GLJPanel canvas;GraphRenderer renderer;
     final JLabel status=new JLabel("准备就绪");final JTextArea properties=new JTextArea();final JTextField search=new JTextField(14);
+    private static final List<String> STYLE_IDS = List.of("classic", "communities", "weighted", "keywords");
+    private final JComboBox<String> styleChoice = new JComboBox<>(new String[]{"经典三维", "社区关系图", "加权关系图", "关键词网络"});
+    private final JCheckBox edgeArrows = new JCheckBox("有向边箭头");
+    private final JCheckBox geography = new JCheckBox("地理地图");
+    private boolean updatingStyleControls;
     public ExplorerPanel(){
         setName("3D Explorer");setDisplayName("3D Explorer · 三维探索");setLayout(new BorderLayout());
         JToolBar bar=new JToolBar();bar.setFloatable(false);bar.add(new JLabel(" 节点 "));search.setMaximumSize(new Dimension(150,28));bar.add(search);search.addActionListener(e->search());
@@ -32,6 +37,27 @@ public final class ExplorerPanel extends TopComponent {
         JPanel side=new JPanel(new BorderLayout(4,6));side.setPreferredSize(new Dimension(220,400));side.setBorder(BorderFactory.createEmptyBorder(8,8,8,8));
         properties.setEditable(false);properties.setLineWrap(true);properties.setWrapStyleWord(true);side.add(new JScrollPane(properties),BorderLayout.CENTER);
         JPanel controls=new JPanel(new GridLayout(0,1,4,5));
+        styleChoice.setToolTipText("选择网络外观，保留当前三维布局和视角");
+        styleChoice.addActionListener(event -> {
+            if (!updatingStyleControls && engine.scene() != null) {
+                act("style", "preset", STYLE_IDS.get(styleChoice.getSelectedIndex()));
+            }
+        });
+        edgeArrows.addActionListener(event -> {
+            if (!updatingStyleControls && engine.scene() != null) act("style", "arrows", edgeArrows.isSelected());
+        });
+        geography.setToolTipText("仅切换当前工作区的地图视图；先准备城市匹配和底图");
+        geography.addActionListener(event -> {
+            if (!updatingStyleControls && engine.scene() != null) act("geography", "enabled", geography.isSelected());
+        });
+        JPanel visualControls = new JPanel(new BorderLayout(4, 3));
+        visualControls.add(new JLabel("外观"), BorderLayout.WEST);
+        visualControls.add(styleChoice, BorderLayout.CENTER);
+        JPanel toggles = new JPanel(new GridLayout(0, 1));
+        toggles.add(edgeArrows);
+        toggles.add(geography);
+        visualControls.add(toggles, BorderLayout.SOUTH);
+        side.add(visualControls, BorderLayout.NORTH);
         button(controls,"一阶邻居",()->selectedNeighbor(1));button(controls,"两阶邻居",()->selectedNeighbor(2));button(controls,"两节点最短路径",()->{Scene s=engine.scene();if(s==null||s.selection.size()!=2){status.setText("请按 Ctrl 选择两个节点");return;}String[] ids=s.selection.toArray(String[]::new);act("path","source",ids[0],"target",ids[1],"directed",true);});
         button(controls,"清除高亮",()->act("clear_highlight"));button(controls,"按社区分层",()->act("layer","attribute","community"));button(controls,"固定选中节点",()->selectionAct("pin","pinned",true));button(controls,"解除固定",()->selectionAct("pin","pinned",false));
         button(controls,"透视 / 正交",()->{Scene s=engine.scene();if(s!=null)act("camera","perspective",!s.perspective);});
@@ -55,6 +81,14 @@ public final class ExplorerPanel extends TopComponent {
         if(!SwingUtilities.isEventDispatchThread()){SwingUtilities.invokeLater(this::refresh);return;}
         Scene s=engine.scene();if(s==null){status.setText("打开一个网络，或生成示例。左拖旋转，右拖平移，滚轮缩放，Ctrl 多选。");properties.setText("Gephi 3D Explorer 0.1 alpha\n\n三维视图独立保存位置。\nAPI: 127.0.0.1:"+ApiServer.port());}
         else{status.setText(s.nodes.size()+" 节点 / "+s.edges.size()+" 边  · 布局 "+engine.jobState+" #"+engine.iteration+" · 左拖旋转 · 右拖平移 · 滚轮缩放 · Ctrl 多选");StringBuilder p=new StringBuilder(s.synthetic?"【合成示例，非真实观测】\n\n":"");for(String id:s.selection){try{Scene.Vertex n=s.find(id);p.append(n.label).append("\nID: ").append(n.id).append("\n度数: ").append(n.degree).append("\n固定: ").append(n.pinned).append("\n");n.attributes.forEach((k,v)->p.append(k).append(": ").append(v).append("\n"));p.append("\n");}catch(IllegalArgumentException ignore){}}properties.setText(p.toString());}
+        updatingStyleControls = true;
+        styleChoice.setEnabled(s != null);
+        edgeArrows.setEnabled(s != null);
+        styleChoice.setSelectedIndex(s == null ? 0 : Math.max(0, STYLE_IDS.indexOf(s.visualStyle)));
+        edgeArrows.setSelected(s != null && s.arrows);
+        geography.setEnabled(s != null && s.geography != null);
+        geography.setSelected(s != null && s.geographyEnabled);
+        updatingStyleControls = false;
         if(canvas!=null)canvas.repaint();
     }
     void installMouse(){MouseAdapter mouse=new MouseAdapter(){Point last,down;int button;
