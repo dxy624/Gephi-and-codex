@@ -9,6 +9,7 @@ import java.util.Map;
 /** Prepared map geometry and firm positions in the same projected coordinates. */
 final class GeoLayer {
     String source;
+    String direction;
     List<double[][][]> polygons;
     List<double[][]> lines;
     List<City> cities;

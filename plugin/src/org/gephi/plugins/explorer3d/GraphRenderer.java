@@ -33,6 +33,10 @@ public final class GraphRenderer implements GLEventListener {
         return p.mul(view(s));
     }
     static Matrix4f view(Scene s){return new Matrix4f().translate(0,0,(float)-s.distance).rotateX((float)s.pitch).rotateY((float)s.yaw).translate((float)-s.targetX,(float)-s.targetY,(float)-s.targetZ);}
+    static boolean usesClassicRenderer(Scene scene) {
+        return !scene.geographyEnabled && scene.visualStyle.equals("classic")
+            && !scene.showsArrows() && !scene.arrowsManuallySet;
+    }
     public static float[] project(Scene s,Scene.Vertex n,int w,int h){return project(s,matrix(s,w,h),n,w,h);}
     static float[] project(Scene scene, Matrix4f matrix, Scene.Vertex node, int width, int height) {
         if (scene.geographyEnabled) {
@@ -52,7 +56,7 @@ public final class GraphRenderer implements GLEventListener {
         gl.glClear(GL.GL_COLOR_BUFFER_BIT|GL.GL_DEPTH_BUFFER_BIT);if(s==null)return;
         gl.glEnable(GL.GL_DEPTH_TEST);gl.glDepthFunc(GL.GL_LEQUAL);gl.glEnable(GL.GL_BLEND);gl.glBlendFunc(GL.GL_SRC_ALPHA,GL.GL_ONE_MINUS_SRC_ALPHA);
         if (s.geographyEnabled) map.draw(gl, s.geography, matrix(s, width, height).get(new float[16]));
-        if (s.geographyEnabled || !s.visualStyle.equals("classic") || s.showsArrows() || s.arrowsManuallySet) {
+        if (!usesClassicRenderer(s)) {
             diagrams.draw(gl, s, width, height, this);
             countFrame();
             return;

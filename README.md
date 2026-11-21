@@ -1,6 +1,8 @@
 # Gephi 3D Explorer
 
-**v0.1.5-alpha · Windows · Gephi 0.11.3 / 0.11.4**
+**v0.1.6-alpha · Windows · Gephi 0.11.3 / 0.11.4**
+
+[下载 v0.1.6-alpha 完整安装包](https://github.com/dxy624/Gephi-and-codex/releases/download/v0.1.6-alpha/gephi-3d-explorer-v0.1.6-alpha.zip) · [查看发行说明](https://github.com/dxy624/Gephi-and-codex/releases/tag/v0.1.6-alpha)
 
 在 Gephi 内旋转、分层和探索三维网络，也可让 Codex 用中文控制同一个视图。此仓库包含 Gephi 插件、独立 MCP 服务和 `gephi-3d` Skill，三者配合使用。
 
@@ -54,7 +56,7 @@ py -3.12 scripts/setup.py --gephi "D:\Apps\Gephi-0.11.4" --install-skill --confi
 py -3.12 scripts/setup.py --configure-codex --replace-gephi-connection
 ```
 
-识别到上一发行包安装的桌面插件时，安装器会备份旧插件并升级。若安装器提示存在其他来源的模块，请在 Gephi 插件管理器里检查，可通过其中的「已下载」页安装新版 [NBM](dist/gephi-3d-explorer-0.1.4.nbm)。若此前编辑过同名 Skill，保留个人版本即可。安装后重开 Gephi 与 Codex。
+识别到上一发行包安装的桌面插件时，安装器会备份旧插件并升级。若安装器提示存在其他来源的模块，请在 Gephi 插件管理器里检查，可通过其中的「已下载」页安装新版 [NBM](dist/gephi-3d-explorer-0.1.6.nbm)。若此前编辑过同名 Skill，保留个人版本即可。安装后重开 Gephi 与 Codex。
 
 ## 3. 启动
 
@@ -102,7 +104,7 @@ py -3.12 scripts/setup.py --mode isolated --install-skill --configure-codex
 
 导入上限为 20 MB、10000 节点、100000 边；不支持动态图或嵌套 GEXF 节点，行政层级可使用普通节点、parent 属性和有向边表示。错误文件不会覆盖已有图。
 
-升级后重新打开所选模式的 Gephi 和 Codex，即可加载 28 个 MCP 工具。
+升级后重新打开所选模式的 Gephi 和 Codex，即可加载 29 个 MCP 工具。
 
 要一次完成导入、布局、配色和展示，可让 Codex 调用 `gephi3d_auto_draw`。它能直接读带节点表和连接表的 XLSX，或读静态 GEXF；按社区配色，用权重控制线宽，有向边才显示箭头。没有数据时，可以明确要求生成合成例子。
 
@@ -112,13 +114,17 @@ py -3.12 scripts/setup.py --mode isolated --install-skill --configure-codex
 
 向 Codex 明确指定**可写文件夹的完整路径**。保存 `.gephi` 以保留网络、三维坐标、相机和书签；导出默认 6000×4000 PNG，也可生成嵌入该图和中文说明的 PDF。导出附带场景 JSON。
 
+需要可编辑的论文图时，在三维面板选中企业或节点（按住 `Ctrl` 多选），点击**导出论文图（SVG）**。可填写图题、箭头含义和成图宽度。导出会放大选中节点、优先安排标签、加深直接关系并淡化背景，图例只列出当前画面需要解释的项目。如果已有最短路径高亮，导出优先突出该路径。节点、连线、箭头和文字可分别编辑。Codex 可调用 `gephi3d_export_paper`。
+
+地图视图只画两端都能定位的关系，图注会注明重点关系的定位缺失情况。关闭「地理地图」后可按网络结构查看这些关系。SVG 输出为当前三维视图的二维投影，可为重点关系重新取景。
+
 现有文件不会被覆盖，请使用新文件名。目录权限失败时应选择可写位置或自行授权；管理员安装目录不适合作为结果目录。
 
 三维坐标与 Gephi 原来的二维坐标分开保存。原有 Gephi-AI 若连接另一个实例，不能用它保存或修改当前三维实例中的图。
 
 ## 已知限制与验证
 
-这是可运行原型，仍缺完整筛选面板、层隐藏控件、任意属性配色和完整论文图例编辑；当前以 MCP 完成筛选与部分样式调整。框选暂不显示拖拽矩形，标签数量有限。无时间动画、SVG 或三轴拖拽编辑，JSON 快照暂不能导回。
+这是可运行原型，仍缺完整筛选面板、层隐藏控件、任意属性配色和完整论文图例编辑；当前以 MCP 完成筛选与部分样式调整。框选暂不显示拖拽矩形，标签数量有限。无时间动画或三轴拖拽编辑，JSON 快照暂不能导回。
 
 本次桌面安装针对 Windows，先前的三维模块在 Gephi 0.11.3 上完成验收。当前发布的实测版本和项目见 [验收说明](docs/VALIDATION.md)。
 

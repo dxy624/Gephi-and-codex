@@ -78,3 +78,29 @@ def test_visual_presets_require_plugin_support(monkeypatch):
         ('style', 7, {'preset': 'weighted', 'arrows': False}),
         ('style', 7, {'arrows': True, 'arrow_scale': 1.8, 'edge_width': 2.2}),
     ]
+
+
+def test_paper_export_requires_support_and_preserves_options(monkeypatch):
+    import server
+
+    class Plugin:
+        capabilities = []
+
+        def state(self):
+            return {'capabilities': self.capabilities}
+
+        def command(self, operation, workspace_id, **parameters):
+            assert operation == 'export_svg' and workspace_id == 7
+            assert parameters == {
+                'path': 'paper.svg', 'width_mm': 89, 'title': '企业关系',
+                'direction': '供应商 → 客户', 'width': 1200, 'height': 800,
+            }
+            return {'success': True, 'path': 'paper.svg'}
+
+    plugin = Plugin()
+    monkeypatch.setattr(server, 'client', plugin)
+    with pytest.raises(ToolError, match='does not support editable paper export'):
+        server.gephi3d_export_paper(7, 'paper.svg')
+    plugin.capabilities.append('paper_svg')
+    result = server.gephi3d_export_paper(7, 'paper.svg', 89, '企业关系', '供应商 → 客户')
+    assert result['success']

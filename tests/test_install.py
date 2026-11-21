@@ -106,12 +106,16 @@ def test_known_desktop_upgrade_backs_up_previous_module(tmp_path, monkeypatch):
     current = module.read_bytes()
     old = b'module from the previous installer'
     module.write_bytes(old)
-    monkeypatch.setattr('common.PREVIOUS_DESKTOP_MODULE', hashlib.sha256(old).hexdigest())
+    registration = profile/'config/Modules/org-gephi-plugins-explorer3d.xml'
+    formatted_registration = registration.read_bytes().replace(b'><param', b'>\n    <param')
+    registration.write_bytes(formatted_registration)
+    monkeypatch.setattr('common.PREVIOUS_DESKTOP_MODULES', {hashlib.sha256(old).hexdigest()})
     before = tree(profile)
     assert install_profile(profile, desktop=True, dry_run=True)
     assert tree(profile) == before
     assert install_profile(profile, desktop=True)
     assert module.read_bytes() == current
+    assert registration.read_bytes() == formatted_registration
     backups = list((profile/'gephi3d-backups').glob('*.jar'))
     assert len(backups) == 1 and backups[0].read_bytes() == old
     assert not install_profile(profile, desktop=True)
@@ -146,4 +150,8 @@ def test_recognized_old_instance_is_not_reused_or_stopped(tmp_path,monkeypatch):
         with pytest.raises(RuntimeError, match='Save your work and close it normally'):
             running_instance(tmp_path,8183)
         monkeypatch.setattr('urllib.request.urlopen',lambda *a,**k:BytesIO(b'{"success":true,"version":"0.1.4-alpha","capabilities":["import_graph","geography","arrow_style"]}'))
+        with pytest.raises(RuntimeError, match='Save your work and close it normally'):
+            running_instance(tmp_path,8183)
+        monkeypatch.setattr('urllib.request.urlopen', lambda *a, **k: BytesIO(
+            b'{"success":true,"version":"0.1.6-alpha","capabilities":["import_graph","geography","arrow_style","paper_svg"]}'))
         assert running_instance(tmp_path,8183) is True

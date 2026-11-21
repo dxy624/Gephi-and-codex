@@ -7,7 +7,7 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from gephi3d_client import Gephi3D
 
-mcp = MCPServer('gephi-3d', version='0.1.4-alpha', instructions='Use the local Gephi plugin API for graph generation, import, exploration and export. These tools require no desktop input. Report connection/capability failures; do not fall back to desktop control unless the user explicitly requests interface operation. Inspect rendering through plugin exports, not desktop screenshots.')
+mcp = MCPServer('gephi-3d', version='0.1.6-alpha', instructions='Use the local Gephi plugin API for graph generation, import, exploration and export. These tools require no desktop input. Report connection/capability failures; do not fall back to desktop control unless the user explicitly requests interface operation. Inspect rendering through plugin exports, not desktop screenshots.')
 client = Gephi3D()
 
 def gephi_tool():
@@ -193,6 +193,17 @@ def gephi3d_export(workspace_id: int, path: str, width: int=6000, height: int=40
         c.drawString(25,25,f"节点 {len(scene['nodes'])} · 边 {len(scene['edges'])} · 视图修订 {scene['revision']}")
         c.save();result['pdf_path']=str(pdf_path)
     return result
+
+@gephi_tool()
+def gephi3d_export_paper(workspace_id: int, path: str, width_mm: float = 183,
+                         title: str = '', direction: str = '',
+                         width: int = 1200, height: int = 800) -> dict:
+    """Export editable SVG with a compact legend and emphasis on selected nodes and their connections. The export can fit the focused group without moving the live camera. Set paper width in mm. The optional direction describes the arrow meaning. Use a new absolute .svg path and pause the layout first. SVG requires plugin 0.1.5+; automatic focus styling and framing require 0.1.6+."""
+    if 'paper_svg' not in client.state().get('capabilities', []):
+        raise ToolError('The connected Gephi plugin does not support editable paper export. Install Gephi 3D Explorer 0.1.5 or later.')
+    return client.command('export_svg', workspace_id, path=path, width_mm=width_mm,
+                          title=title, direction=direction, width=width, height=height)
+
 
 @gephi_tool()
 def gephi3d_save_project(workspace_id: int, path: str) -> dict:

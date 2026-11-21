@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.6-alpha — 2026-11-21
+
+- 在三维面板加入「导出论文图（SVG）」，可填写图题、成图宽度和箭头含义。节点、连线、箭头及文字为可编辑对象。
+- 精简图例，突出选中节点和一阶关系，支持现有最短路径高亮，淡化背景并在需要时为重点关系重新取景。地理视图注明缺少城市定位的重点关系。
+- 加入 `gephi3d_export_paper`，随发行包提供 29 个 MCP 工具和 Gephi 模块 0.1.6。
+
 ## v0.1.5-alpha — 2026-11-20
 
 - Toggle directed arrowheads in ordinary and geographic views.

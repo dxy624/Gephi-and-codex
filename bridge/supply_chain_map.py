@@ -196,7 +196,7 @@ def prepare_geography(graph, boundary, city_table, leader_ids, source, city_attr
         for order, firm in enumerate(sorted(firms, key=lambda firm: (firm in lead_set, firm))):
             positions[firm] = [x, y, 2 + order * min(7, 120 / len(firms))]
     xs, ys = zip(*points)
-    layer = {'source': source, 'polygons': polygons, 'lines': lines, 'cities': markers,
+    layer = {'source': source, 'direction': '供应商 → 客户', 'polygons': polygons, 'lines': lines, 'cities': markers,
              'positions': positions, 'leaders': sorted(lead_set), 'communities': leader_groups,
              'bounds': [min(xs), min(ys), max(xs), max(ys)]}
     report = {'matched_firms': len(positions), 'matched_cities': len(markers), 'unmatched_firms': sum(missing.values()),

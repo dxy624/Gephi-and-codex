@@ -23,7 +23,7 @@ final class DiagramRenderer {
         0x256eae, 0x3b8862, 0x955cba, 0xd38430, 0x1597a4,
         0xc45c6c, 0x716634, 0x52668c, 0xaf5b3c, 0x618025
     };
-    private static final int ACCENT = 0xf4ad39;
+    static final int ACCENT = 0xf4ad39;
     private static final int BATCH_VERTICES = 8190;
     private final FloatBuffer edgePositions = Buffers.newDirectFloatBuffer(3 * BATCH_VERTICES);
     private final FloatBuffer edgeColors = Buffers.newDirectFloatBuffer(4 * BATCH_VERTICES);
@@ -33,18 +33,35 @@ final class DiagramRenderer {
     private TextRenderer text;
     private int textSize;
 
-    private record Node(Scene.Vertex vertex, float x, float y, float z, float radius,
-                        int rgb, float alpha, double importance, boolean selected, boolean emphasized,
-                        boolean leaderCommunity) { }
+    record Node(Scene.Vertex vertex, float x, float y, float z, float radius,
+                int rgb, float alpha, double importance, boolean selected, boolean emphasized,
+                boolean leaderCommunity) { }
 
-    void draw(GL2 gl, Scene scene, int width, int height, GraphRenderer renderer) {
-        if (width < 1 || height < 1) return;
+    record Projection(Node[] nodes, Matrix4f matrix, Map<String, Integer> palette, Set<String> leaders,
+                      float unit, double maxWeight, boolean classic, boolean weighted,
+                      boolean curved, boolean keywords) { }
+
+    record EdgeStyle(int color, float alpha, float width, boolean curved, float arrowLength) { }
+    record Arrow(float tipX, float tipY, float leftX, float leftY, float rightX, float rightY) { }
+    record EdgeShape(float ax, float ay, float cx, float cy, float bx, float by,
+                     boolean curved, float finish, Arrow arrow) {
+        float x(float t) { return quadratic(ax, cx, bx, t); }
+        float y(float t) { return quadratic(ay, cy, by, t); }
+        private static float quadratic(float start, float control, float end, float t) {
+            float rest = 1 - t;
+            return rest * rest * start + 2 * rest * t * control + t * t * end;
+        }
+    }
+
+    static Projection project(Scene scene, int width, int height, boolean paper) {
         float unit = Math.max(.55f, height / 850f);
         boolean geographic = scene.geographyEnabled;
+        boolean classic = paper && GraphRenderer.usesClassicRenderer(scene);
         boolean weighted = !geographic && scene.visualStyle.equals("weighted");
         boolean curved = geographic || scene.visualStyle.equals("communities");
         boolean keywords = scene.visualStyle.equals("keywords");
-        Set<String> leaders = geographic ? Set.copyOf(scene.geography.leaders) : Set.of();
+        Set<String> leaders = scene.geography != null && (geographic || paper)
+            ? Set.copyOf(scene.geography.leaders) : Set.of();
         Set<String> leaderGroups = geographic ? Set.copyOf(scene.geography.communities) : Set.of();
         Node[] projection = new Node[scene.nodes.size()];
         double[] ranks = new double[projection.length];
@@ -64,6 +81,7 @@ final class DiagramRenderer {
             maxRank = Math.max(maxRank, ranks[i]);
         }
         Matrix4f matrix = GraphRenderer.matrix(scene, width, height);
+        Matrix4f classicView = classic && scene.perspective ? GraphRenderer.view(scene) : null;
         for (int i = 0; i < projection.length; i++) {
             Scene.Vertex vertex = scene.nodes.get(i);
             if (!scene.visible(vertex)) continue;
@@ -84,13 +102,63 @@ final class DiagramRenderer {
                 * depthScale * (selected ? 1.14 : 1)));
             int color = weighted ? blend(0xaed9cd, 0x14604d, importance)
                 : palette.getOrDefault(vertex.community, originalColor(vertex));
+            if (classic) {
+                double perspectiveScale = 1;
+                if (classicView != null) {
+                    double viewZ = classicView.m02() * vertex.x + classicView.m12() * vertex.y
+                        + classicView.m22() * vertex.z + classicView.m32();
+                    perspectiveScale = 1000 / Math.max(20, -viewZ);
+                }
+                radius = (float) Math.max(1.5, Math.min(60, vertex.size * scene.nodeScale * height / 1800
+                    * perspectiveScale * (selected ? 1.5 : 1)));
+                color = originalColor(vertex);
+            }
             if (selected) color = ACCENT;
             float alpha = scene.highlight.isEmpty() || emphasized ? 1 : .24f;
             if (geographic && !leaderGroups.isEmpty() && !inLeaderCommunity && !selected) alpha *= .56f;
             projection[i] = new Node(vertex, p[0], p[1], p[2], radius, color, alpha, importance,
                 selected, emphasized, inLeaderCommunity);
         }
+        return new Projection(projection, matrix, palette, leaders, unit, maxWeight, classic, weighted, curved, keywords);
+    }
 
+    static EdgeStyle edgeStyle(Scene scene, Projection projection, Scene.Link edge, Node from, Node to) {
+        boolean hot = scene.pathEdges.isEmpty()
+            ? scene.highlight.contains(from.vertex.id) && scene.highlight.contains(to.vertex.id)
+            : scene.pathEdges.contains(edge.id);
+        if (projection.classic) {
+            int color = hot ? ACCENT : scene.dark ? 0x80a6cc : 0x596673;
+            float alpha = hot ? .85f : scene.highlight.isEmpty() ? .25f : .035f;
+            return new EdgeStyle(color, alpha, (float) scene.edgeWidth, false, 0);
+        }
+        float unit = projection.unit;
+        boolean weighted = projection.weighted;
+        boolean curved = projection.curved;
+        double maxWeight = projection.maxWeight;
+        double relative = maxWeight > 0 ? Math.sqrt(Math.max(0, edge.weight) / maxWeight) : 0;
+        float width = (float) Math.max(.65, Math.min(15, unit * scene.edgeWidth *
+            (weighted ? .7 + 5.5 * relative : .55 + 1.9 * relative)));
+        float alpha = hot ? .88f : !scene.highlight.isEmpty() ? .09f
+            : (float) (weighted ? .22 + .62 * relative : curved ? .23 : .31 + .27 * relative);
+        int color = hot ? ACCENT : weighted ? blend(0x8ebdb3, 0x155a49, relative)
+            : blend(from.rgb, to.rgb, .5);
+        if (scene.geographyEnabled) {
+            if (from.leaderCommunity && to.leaderCommunity && from.vertex.community.equals(to.vertex.community)) {
+                width *= 1.85f;
+                alpha = (float) (.64 + .25 * relative);
+                color = projection.palette.getOrDefault(from.vertex.community, color);
+            } else if (!scene.geography.communities.isEmpty() && !hot) alpha = (float) (.20 + .19 * relative);
+        }
+        float arrowLength = scene.showsArrows() && edge.directed
+            ? (float) (unit * scene.arrowScale * (7 + 16 * relative)) : 0;
+        return new EdgeStyle(color, alpha, width, curved || (weighted && edge.directed), arrowLength);
+    }
+
+    void draw(GL2 gl, Scene scene, int width, int height, GraphRenderer renderer) {
+        if (width < 1 || height < 1) return;
+        Projection projected = project(scene, width, height, false);
+        Node[] projection = projected.nodes;
+        float unit = projected.unit;
         gl.glMatrixMode(GL2.GL_PROJECTION);
         gl.glLoadIdentity();
         gl.glOrtho(0, width, height, 0, -1, 1);
@@ -103,29 +171,9 @@ final class DiagramRenderer {
             Node from = projection[edge.source];
             Node to = projection[edge.target];
             if (from == null || to == null || edge.weight < scene.minWeight) continue;
-            boolean hot = scene.pathEdges.isEmpty()
-                ? scene.highlight.contains(from.vertex.id) && scene.highlight.contains(to.vertex.id)
-                : scene.pathEdges.contains(edge.id);
-            double relative = maxWeight > 0 ? Math.sqrt(Math.max(0, edge.weight) / maxWeight) : 0;
-            float lineWidth = (float) Math.max(.65, Math.min(15, unit * scene.edgeWidth *
-                (weighted ? .7 + 5.5 * relative : .55 + 1.9 * relative)));
-            float alpha = hot ? .88f : !scene.highlight.isEmpty() ? .09f
-                : (float) (weighted ? .22 + .62 * relative : curved ? .23 : .31 + .27 * relative);
-            int color = hot ? ACCENT : weighted ? blend(0x8ebdb3, 0x155a49, relative)
-                : blend(from.rgb, to.rgb, .5);
-            if (geographic) {
-                boolean primary = from.leaderCommunity && to.leaderCommunity
-                    && from.vertex.community.equals(to.vertex.community);
-                if (primary) {
-                    lineWidth *= 1.85f;
-                    alpha = (float) (.64 + .25 * relative);
-                    color = palette.getOrDefault(from.vertex.community, color);
-                } else if (!leaderGroups.isEmpty() && !hot) alpha = (float) (.20 + .19 * relative);
-            }
-            float arrowLength = scene.showsArrows() && edge.directed
-                ? (float) (unit * scene.arrowScale * (7 + 16 * relative)) : 0;
-            drawEdge(gl, from, to, color, alpha, lineWidth, unit,
-                curved || (weighted && edge.directed), arrowLength);
+            EdgeStyle style = edgeStyle(scene, projected, edge, from, to);
+            EdgeShape shape = edgeShape(from, to, unit, style);
+            if (shape != null) drawEdge(gl, from, to, style, shape);
         }
         flush(gl);
         gl.glDepthMask(true);
@@ -139,7 +187,7 @@ final class DiagramRenderer {
             if (font.canDisplayUpTo("示例网络 · Gephi") >= 0) font = new Font("SansSerif", Font.PLAIN, textSize);
             text = new TextRenderer(font, true, true);
         }
-        drawLabels(text, scene, projection, matrix, width, height, unit, keywords);
+        drawLabels(text, scene, projection, projected.matrix, width, height, unit, projected.keywords);
     }
 
     void dispose() {
@@ -158,8 +206,8 @@ final class DiagramRenderer {
         return result;
     }
 
-    private void drawEdge(GL2 gl, Node from, Node to, int color, float alpha, float width,
-                          float unit, boolean curved, float arrowLength) {
+    static EdgeShape edgeShape(Node from, Node to, float unit, EdgeStyle style) {
+        boolean curved = style.curved;
         float dx = to.x - from.x;
         float dy = to.y - from.y;
         float distance = (float) Math.hypot(dx, dy);
@@ -173,7 +221,7 @@ final class DiagramRenderer {
             cy = from.y - from.radius * 1.8f - 13 * unit;
             curved = true;
         } else {
-            if (distance < from.radius + to.radius + 2) return;
+            if (distance < from.radius + to.radius + 2) return null;
             float bend = curved ? Math.min(distance * .20f, 65 * unit) : 0;
             cx = (from.x + to.x) / 2 - bend * dy / distance;
             cy = (from.y + to.y) / 2 + bend * dx / distance;
@@ -185,11 +233,12 @@ final class DiagramRenderer {
             by = to.y + (cy - to.y) * to.radius / last;
         }
         float finish = 1;
-        if (arrowLength > 0) {
+        Arrow arrow = null;
+        if (style.arrowLength > 0) {
             float dxEnd = bx - cx, dyEnd = by - cy;
             float tangent = (float) Math.hypot(dxEnd, dyEnd);
             float reach = from == to ? tangent : (float) Math.hypot(bx - ax, by - ay);
-            float head = Math.min(arrowLength, Math.min(reach * .60f, tangent));
+            float head = Math.min(style.arrowLength, Math.min(reach * .60f, tangent));
             if (tangent > .1f && head > .1f) {
                 finish = 1 - head / (2 * tangent);
                 float rest = 1 - finish;
@@ -197,19 +246,27 @@ final class DiagramRenderer {
                 float baseY = rest * rest * ay + 2 * rest * finish * cy + finish * finish * by;
                 float offX = -dyEnd * head * .54f / tangent;
                 float offY = dxEnd * head * .54f / tangent;
-                triangle(gl, bx, by, to.z, baseX + offX, baseY + offY, to.z,
-                    baseX - offX, baseY - offY, to.z, color, Math.min(1, alpha * 1.4f));
+                arrow = new Arrow(bx, by, baseX + offX, baseY + offY, baseX - offX, baseY - offY);
             }
         }
-        float previousX = ax, previousY = ay, previousZ = from.z;
-        int steps = curved ? 9 : 1;
+        return new EdgeShape(ax, ay, cx, cy, bx, by, curved, finish, arrow);
+    }
+
+    private void drawEdge(GL2 gl, Node from, Node to, EdgeStyle style, EdgeShape shape) {
+        Arrow arrow = shape.arrow;
+        if (arrow != null) {
+            triangle(gl, arrow.tipX, arrow.tipY, to.z, arrow.leftX, arrow.leftY, to.z, arrow.rightX,
+                arrow.rightY, to.z, style.color, Math.min(1, style.alpha * 1.4f));
+        }
+        float previousX = shape.ax, previousY = shape.ay, previousZ = from.z;
+        int steps = shape.curved ? 9 : 1;
         for (int i = 1; i <= steps; i++) {
-            float t = finish * i / steps;
+            float t = shape.finish * i / steps;
             float rest = 1 - t;
-            float x = rest * rest * ax + 2 * rest * t * cx + t * t * bx;
-            float y = rest * rest * ay + 2 * rest * t * cy + t * t * by;
+            float x = shape.x(t);
+            float y = shape.y(t);
             float z = rest * from.z + t * to.z;
-            segment(gl, previousX, previousY, previousZ, x, y, z, width, color, alpha);
+            segment(gl, previousX, previousY, previousZ, x, y, z, style.width, style.color, style.alpha);
             previousX = x;
             previousY = y;
             previousZ = z;
@@ -344,7 +401,7 @@ final class DiagramRenderer {
         text.endRendering();
     }
 
-    private static boolean overlapsNode(Rectangle2D box, List<Node> visible, Node owner) {
+    static boolean overlapsNode(Rectangle2D box, List<Node> visible, Node owner) {
         for (Node node : visible) {
             if (node == owner) continue;
             double x = Math.max(box.getMinX(), Math.min(box.getMaxX(), node.x));

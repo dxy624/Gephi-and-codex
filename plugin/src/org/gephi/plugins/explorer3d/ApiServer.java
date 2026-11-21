@@ -48,6 +48,11 @@ public final class ApiServer {
                 org.gephi.project.api.Workspace previous=(org.gephi.project.api.Workspace)edt(()->{if(Engine.INSTANCE.jobState.equals("running"))throw new IllegalArgumentException("Pause layout before importing");return Engine.INSTANCE.workspace();});
                 GraphImport imported=GraphImport.read(Engine.str(request,"path",""));
                 response=Scene.JSON.toJson(edt(()->imported.commit(previous,Engine.bool(request,"synthetic",false))));
+            }else if(operation.equals("export_svg")){
+                Scene snapshot=(Scene)edt(()->Engine.INSTANCE.paperSnapshot(Engine.integer(request,"workspace_id",-1)));
+                response=Scene.JSON.toJson(PaperSvg.export(snapshot, Engine.str(request,"path",""),
+                    Engine.integer(request,"width",1200), Engine.integer(request,"height",800),
+                    Engine.num(request,"width_mm",183), Engine.str(request,"title",""), Engine.str(request,"direction","")));
             }else if(operation.equals("save_project")){
                 org.gephi.project.api.Workspace w=(org.gephi.project.api.Workspace)edt(()->{Engine e=Engine.INSTANCE;if(e.workspace()==null||e.workspace().getId()!=Engine.integer(request,"workspace_id",-1))throw new IllegalArgumentException("Workspace changed");if(e.jobState.equals("running"))throw new IllegalArgumentException("Pause layout before saving");return e.workspace();});
                 Path destination=Path.of(Engine.str(request,"path",""));if(!destination.isAbsolute()||!destination.toString().endsWith(".gephi")||Files.exists(destination))throw new IllegalArgumentException("New absolute .gephi path required");

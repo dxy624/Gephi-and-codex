@@ -12,6 +12,7 @@ import java.awt.image.BufferedImage;
 import java.nio.file.*;
 import java.util.*;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import com.google.gson.*;
 
 public final class ExplorerPanel extends TopComponent {
@@ -70,6 +71,7 @@ public final class ExplorerPanel extends TopComponent {
         button(controls,"恢复视角",()->{Scene s=engine.scene();if(s==null)return;Object n=JOptionPane.showInputDialog(this,"选择视角","视角",JOptionPane.PLAIN_MESSAGE,null,s.bookmarks.keySet().toArray(),null);if(n!=null)act("bookmark","name",n.toString(),"restore",true);});
         button(controls,"生成示例网络",()->{if(JOptionPane.showConfirmDialog(this,"在新工作区生成 60 节点示例网络？","示例网络",JOptionPane.OK_CANCEL_OPTION)==JOptionPane.OK_OPTION)act("generate");});
         button(controls,"导出 PNG",()->{JFileChooser chooser=new JFileChooser();chooser.setSelectedFile(new java.io.File("network-3d.png"));if(chooser.showSaveDialog(this)==JFileChooser.APPROVE_OPTION)act("export_png","path",chooser.getSelectedFile().getAbsolutePath());});
+        button(controls, "导出论文图（SVG）", this::exportPaper);
         side.add(controls,BorderLayout.SOUTH);add(side,BorderLayout.EAST);
         status.setBorder(BorderFactory.createEmptyBorder(5,12,5,10));add(status,BorderLayout.SOUTH);
         engine.changed=this::refresh;refresh();
@@ -78,6 +80,48 @@ public final class ExplorerPanel extends TopComponent {
     public static void showPanel(){showPanel(false);}
     public static void showPanel(boolean activate){if(instance==null)instance=new ExplorerPanel();instance.open();if(activate)instance.requestActive();else instance.requestVisible();}
     void button(JComponent p,String label,Runnable r){JButton b=new JButton(label);b.addActionListener(e->{try{r.run();}catch(Exception ex){status.setText(ex.getMessage());}});p.add(b);}
+    private void exportPaper() {
+        Scene current = engine.requireScene();
+        int workspace = current.workspaceId;
+        var chooser = new JFileChooser();
+        chooser.setDialogTitle("导出论文图（可编辑 SVG）");
+        chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("SVG 矢量图", "svg"));
+        chooser.setSelectedFile(new java.io.File("network-paper.svg"));
+        var options = new JPanel(new GridLayout(0, 1, 4, 4));
+        options.setBorder(BorderFactory.createEmptyBorder(6, 12, 6, 4));
+        var width = new JSpinner(new SpinnerNumberModel(183.0, 60.0, 300.0, 1.0));
+        var title = new JTextField(current.geographyEnabled ? "企业地理关系图" : "网络关系图", 15);
+        var direction = new JTextField(PaperSvg.defaultDirection(current), 15);
+        options.add(new JLabel("成图宽度（毫米）")); options.add(width);
+        options.add(new JLabel("图标题")); options.add(title);
+        options.add(new JLabel("箭头含义")); options.add(direction);
+        chooser.setAccessory(options);
+        if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
+        Scene snapshot = engine.paperSnapshot(workspace);
+        String selectedPath = chooser.getSelectedFile().getAbsolutePath();
+        String path = selectedPath.toLowerCase(Locale.ROOT).endsWith(".svg") ? selectedPath : selectedPath + ".svg";
+        int viewWidth = canvas != null && canvas.getWidth() >= 300 ? canvas.getWidth() : 1200;
+        int viewHeight = canvas != null && canvas.getHeight() >= 200 ? canvas.getHeight() : 800;
+        double paperWidth = ((Number) width.getValue()).doubleValue();
+        String figureTitle = title.getText(), directionLabel = direction.getText();
+        status.setText("正在导出论文图…");
+        new SwingWorker<Map<String,Object>, Void>() {
+            @Override protected Map<String,Object> doInBackground() {
+                return PaperSvg.export(snapshot, path, viewWidth, viewHeight, paperWidth, figureTitle, directionLabel);
+            }
+            @Override protected void done() {
+                try {
+                    Map<String,Object> result = get();
+                    status.setText("已导出 SVG：" + path + " · 未排入的重点标签 " + result.get("unplaced_priority_labels"));
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    status.setText("导出已中断");
+                } catch (ExecutionException ex) {
+                    status.setText("导出失败：" + ex.getCause().getMessage());
+                }
+            }
+        }.execute();
+    }
     private JPanel styleSlider(String name, JSlider slider, String option, String tooltip) {
         JPanel row = new JPanel(new BorderLayout(5, 0));
         JLabel label = new JLabel(name);

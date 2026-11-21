@@ -9,6 +9,7 @@ import sys
 import time
 import uuid
 from zipfile import ZipFile
+import xml.etree.ElementTree as ET
 import pytest
 import networkx as nx
 
@@ -135,8 +136,8 @@ async def check_mcp(client,tmp_path):
     params=StdioServerParameters(command=sys.executable,args=['-X','utf8',str(ROOT/'bridge/server.py')],env=dict(os.environ,GEPHI3D_URL=client.url,GEPHI3D_TOKEN_FILE=str(client.token_file)))
     async with stdio_client(params) as (reader,writer):
         async with ClientSession(reader,writer) as session:
-            await session.initialize();listed=await session.list_tools();assert len(listed.tools)==28
-            assert {'gephi3d_import_graph', 'gephi3d_auto_draw', 'gephi3d_geography', 'gephi3d_supply_chain_map'} <= {
+            await session.initialize();listed=await session.list_tools();assert len(listed.tools)==29
+            assert {'gephi3d_import_graph', 'gephi3d_auto_draw', 'gephi3d_geography', 'gephi3d_supply_chain_map', 'gephi3d_export_paper'} <= {
                 tool.name for tool in listed.tools
             }
             result=await session.call_tool('gephi3d_status',{});assert not result.is_error
@@ -191,6 +192,16 @@ async def check_supply_chain_map(session, client, tmp_path):
     toggle = {'workspace_id': workspace, 'enabled': True}
     mapped = (await call('gephi3d_geography', toggle))['scene']
     assert mapped['geography']['enabled'] and mapped['visible_nodes'] == 3
+    await call('gephi3d_select', {'workspace_id': workspace, 'ids': ['001']})
+    paper = tmp_path / 'paper.svg'
+    await call('gephi3d_export_paper', {'workspace_id': workspace, 'path': str(paper), 'width_mm': 183})
+    svg = ET.parse(paper)
+    ns = {'s': 'http://www.w3.org/2000/svg'}
+    assert svg.find('.//s:text[@data-label-for="001"]', ns).get('font-weight') == 'bold'
+    focus_edges = svg.findall('.//s:path[@data-focus="true"]', ns)
+    assert [(edge.get('data-source'), edge.get('data-target')) for edge in focus_edges] == [('001', '002')]
+    assert '缺少城市定位' in svg.find('s:desc', ns).text
+    await call('gephi3d_select', {'workspace_id': workspace, 'ids': []})
     map_png = tmp_path / 'map.png'
     client.command('export_png', workspace, path=str(map_png), width=900, height=700)
     with Image.open(normal_png) as normal, Image.open(map_png) as mapped_image:

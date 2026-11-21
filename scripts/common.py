@@ -14,12 +14,15 @@ import errno
 from zipfile import ZipFile
 
 ROOT = Path(__file__).resolve().parents[1]
-MODULE_VERSION = '0.1.4'
-RELEASE_TAG = 'v0.1.5-alpha'
+MODULE_VERSION = '0.1.6'
+RELEASE_TAG = 'v0.1.6-alpha'
 NBM = ROOT / 'dist' / f'gephi-3d-explorer-{MODULE_VERSION}.nbm'
 MODULE = 'org-gephi-plugins-explorer3d'
-# The unchanged 0.1.3 JAR shipped in the previous public desktop installer.
-PREVIOUS_DESKTOP_MODULE = 'a43a2510acfba5d03d77a0696c9cd569668cf049fb6e7854a2dbd8f6492a86e8'
+# JAR checksums from the previous public installers.
+PREVIOUS_DESKTOP_MODULES = {
+    'a43a2510acfba5d03d77a0696c9cd569668cf049fb6e7854a2dbd8f6492a86e8',  # 0.1.3
+    'bc43f8d309eaf769da669f7505d5ab8bb09747dfb3e5dbdbde23da36a10a93a6',  # 0.1.4
+}
 DESKTOP_PORT = 8183
 ISOLATED_PORT = 8184
 
@@ -80,7 +83,9 @@ def running_instance(state,port):
             with urllib.request.urlopen(request,timeout=3) as response:
                 health=json.load(response)
                 if health.get('success') and re.fullmatch(r'\d+\.\d+\.\d+-alpha', health.get('version', '')):
-                    if not {'geography', 'arrow_style'}.issubset(health.get('capabilities', [])):
+                    version = tuple(int(part) for part in health['version'].removesuffix('-alpha').split('.'))
+                    minimum = tuple(int(part) for part in MODULE_VERSION.split('.'))
+                    if version < minimum or not {'geography', 'arrow_style', 'paper_svg'}.issubset(health.get('capabilities', [])):
                         raise RuntimeError('This is an older Gephi 3D instance. Save your work and close it normally, then launch the updated version; no process was stopped.')
                     return True
         except (OSError,ValueError): pass
@@ -104,7 +109,9 @@ def install_profile(profile, nbm=NBM, *, desktop=False, dry_run=False):
             if existing == data:
                 continue
             if desktop:
-                known_jar = destination == module_jar and sha256(existing).hexdigest() == PREVIOUS_DESKTOP_MODULE
+                if destination != module_jar and re.sub(rb'>\s+<', b'><', existing.strip()) == re.sub(rb'>\s+<', b'><', data.strip()):
+                    continue
+                known_jar = destination == module_jar and sha256(existing).hexdigest() in PREVIOUS_DESKTOP_MODULES
                 if not known_jar:
                     raise RuntimeError(f'An existing desktop plugin file differs: {destination}. '
                                        'Review the 3D Explorer installation in Gephi before continuing.')
