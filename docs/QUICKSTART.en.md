@@ -21,13 +21,15 @@ Ask Codex: “Use gephi-3d to generate a synthetic network of 60 nodes in 3 comm
 
 The skill defaults to plugin API calls and does not use desktop control unless you explicitly request interface operation. Connection or authentication failures are reported, not worked around with mouse or keyboard automation. To inspect rendering, Codex exports a preview through the plugin.
 
-Use `gephi3d_auto_draw` for a two-sheet Excel workbook, a static GEXF file or a synthetic example. It imports or generates the graph, runs the layout, styles it by community, weight and direction, and opens the 3D panel. Local GEXF import preserves graph attributes and supplied XYZ. Limits: 20 MB of GEXF, 10,000 nodes and 100,000 edges. Reload Codex after updating to discover all 29 tools.
+Use `gephi3d_auto_draw` for a two-sheet Excel workbook, a static GEXF file or a synthetic example. It imports or generates the graph, runs the layout, styles it by community, weight and direction, and opens the 3D panel. Local GEXF import preserves graph attributes and supplied XYZ. Limits: 20 MB of GEXF, 10,000 nodes and 100,000 edges. Reload Codex after updating to discover all 32 tools.
 
 For an optional supply-chain map, use `gephi3d_supply_chain_map` with a local Stata DTA, CSV or GEXF dataset, a city-code lookup CSV, a matching local GeoJSON basemap, and chain leader IDs. The map starts off and can be enabled per workspace with the map checkbox in the 3D panel. The [examples](../examples/README.md) list the input columns. Provide your own basemap and data.
 
 To upgrade, save your project and close Gephi, extract the new release into a fresh directory, and run `py -3.12 scripts/setup.py --configure-codex --replace-gephi-connection --dry-run`. Review the preview, then repeat without `--dry-run`. Setup backs up the recognized previous desktop module and the Codex configuration. Add `--mode isolated` to keep using the independent launcher. Restart Gephi and Codex.
 
 Left-drag rotates, right-drag pans, wheel zooms, Ctrl-click changes selection, and double-click focuses a node. Save to a new `.gephi` path to retain the 3D scene. PNG/PDF exports require a writable absolute destination and do not overwrite existing files.
+
+Use **筛选** to filter by name, code, city or neighborhood. Use **层开关** to toggle graph layers and **字段配色** to color nodes by a chosen field. In the SVG export dialog, **编辑图例** adjusts legend items and placement. These settings persist in the Gephi project.
 
 For an editable vector figure, Ctrl-click nodes and choose **导出论文图（SVG）** in the 3D panel, or call `gephi3d_export_paper`. The export emphasizes the selection and its direct links, simplifies the legend, and reports links missing locations in map view.
 

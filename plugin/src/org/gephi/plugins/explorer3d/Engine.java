@@ -44,6 +44,7 @@ public final class Engine {
             for(Edge e:graph.getEdges()){Integer a=index.get(e.getSource().getId()),b=index.get(e.getTarget().getId());if(a==null||b==null)continue;Scene.Link l=new Scene.Link();l.id=e.getId().toString();l.source=a;l.target=b;l.directed=e.isDirected();l.weight=Double.isFinite(e.getWeight())?e.getWeight():1;edges.add(l);}
         }finally{graph.readUnlock();}
         s.nodes=nodes;s.edges=edges;s.selection.retainAll(oldIds(nodes));s.highlight.retainAll(oldIds(nodes));s.pathEdges.clear();
+        s.refreshViewCaches();
         if(old.isEmpty())s.fit();
     }
     Set<String> oldIds(List<Scene.Vertex> nodes){Set<String> ids=new HashSet<>();for(Scene.Vertex v:nodes)ids.add(v.id);return ids;}
@@ -51,7 +52,7 @@ public final class Engine {
     void replace(Scene before,Scene after){Workspace w=workspace();w.remove(before);after.revision=before.revision+1;w.add(after);changed.run();}
     void history(boolean backwards){cancel.set(true);Scene s=requireScene();Map<Integer,Deque<Scene>> a=backwards?undo:redo,b=backwards?redo:undo;Deque<Scene> q=a.computeIfAbsent(s.workspaceId,k->new ArrayDeque<>());if(q.isEmpty())throw new IllegalArgumentException("No history available");b.computeIfAbsent(s.workspaceId,k->new ArrayDeque<>()).push(s.copy());replace(s,q.pop());}
     Scene requireScene(){Scene s=scene();if(s==null)throw new IllegalArgumentException("No workspace open. Generate an example or open a project first.");return s;}
-    public Map<String,Object> state(){Scene s=scene();Map<String,Object> result=new LinkedHashMap<>();result.put("success",true);result.put("version","0.1.6-alpha");result.put("capabilities",List.of("import_graph","offscreen_export","no_desktop_input","visual_presets","geography","arrow_style","paper_svg"));result.put("has_workspace",s!=null);result.put("scene",s==null?null:s.status());result.put("layout",Map.of("job_id",jobId,"state",jobState,"iteration",iteration,"error",jobError));result.put("renderer",ExplorerPanel.rendererStatus);return result;}
+    public Map<String,Object> state(){Scene s=scene();Map<String,Object> result=new LinkedHashMap<>();result.put("success",true);result.put("version","0.1.7-alpha");result.put("capabilities",List.of("import_graph","offscreen_export","no_desktop_input","visual_presets","geography","arrow_style","paper_svg","view_controls"));result.put("has_workspace",s!=null);result.put("scene",s==null?null:s.status());result.put("layout",Map.of("job_id",jobId,"state",jobState,"iteration",iteration,"error",jobError));result.put("renderer",ExplorerPanel.rendererStatus);return result;}
 
     Scene paperSnapshot(int workspaceId) {
         Scene current = requireScene();
@@ -97,10 +98,19 @@ public final class Engine {
             case "path":detail=s.shortestPath(str(j,"source",""),str(j,"target",""),bool(j,"directed",true));s.isolate=bool(j,"isolate",false);break;
             case "highlight_community":s.highlight.clear();s.pathEdges.clear();Set<String> communities=new HashSet<>(strings(j,"communities"));for(Scene.Vertex n:s.nodes)if(communities.contains(n.community))s.highlight.add(n.id);s.isolate=bool(j,"isolate",false);break;
             case "clear_highlight":s.highlight.clear();s.pathEdges.clear();s.isolate=false;break;
-            case "filter":s.minDegree=Math.max(0,integer(j,"min_degree",0));s.minWeight=num(j,"min_weight",-Double.MAX_VALUE);s.communityFilter=str(j,"community","");break;
+            case "filter":applyFilters(s,j);break;
             case "pin":for(String id:strings(j,"ids"))s.find(id).pinned=bool(j,"pinned",true);break;
             case "layer":s.layer(str(j,"attribute","community"),num(j,"spacing",160));break;
-            case "unlayer":s.layerAttribute="";break;
+            case "unlayer":s.layerAttribute="";s.hiddenLayers.clear();break;
+            case "layer_visibility":{
+                if (s.layerAttribute.isEmpty()) throw new IllegalArgumentException("请先分层");
+                var hidden = new LinkedHashSet<>(strings(j,"hidden"));
+                if (!s.layers().containsAll(hidden)) throw new IllegalArgumentException("隐藏列表包含不存在的层");
+                s.hiddenLayers = hidden;
+                break;
+            }
+            case "node_colors":applyNodeColors(s,j);break;
+            case "paper_legend":applyLegend(s,j);break;
             case "style":applyStyle(s,j);break;
             case "geography":{
                 String path = str(j,"map_path","");
@@ -119,6 +129,55 @@ public final class Engine {
         }
         s.revision++;changed.run();Map<String,Object> result=state();if(detail!=null)result.put("result",detail);return result;
     }
+    private static void applyFilters(Scene scene, JsonObject options) {
+        int hops = integer(options, "hops", 0);
+        if (hops < 0 || hops > 2) throw new IllegalArgumentException("邻居范围只能为 0、1 或 2 阶");
+        var roots = new LinkedHashSet<String>();
+        if (hops != 0) {
+            roots.addAll(options.has("roots") ? strings(options, "roots") : scene.selection);
+            if (roots.isEmpty()) throw new IllegalArgumentException("请先选中用于筛选邻居的节点");
+            for (String id : roots) scene.find(id);
+        }
+        scene.minDegree = Math.max(0, integer(options, "min_degree", 0));
+        scene.minWeight = num(options, "min_weight", -Double.MAX_VALUE);
+        scene.communityFilter = str(options, "community", "");
+        scene.nodeQuery = str(options, "node_query", "").strip().toLowerCase(Locale.ROOT);
+        scene.cityQuery = str(options, "city_query", "").strip().toLowerCase(Locale.ROOT);
+        scene.neighborhoodHops = hops;
+        scene.neighborhoodRoots = roots;
+        scene.refreshViewCaches();
+    }
+
+    private static void applyNodeColors(Scene scene, JsonObject options) {
+        String field = str(options, "field", "");
+        String mode = str(options, "mode", "category");
+        if (!Set.of("category", "number").contains(mode)) throw new IllegalArgumentException("Unknown color mode");
+        if (!field.isEmpty() && !scene.fields().contains(field)) throw new IllegalArgumentException("未知节点属性：" + field);
+        if (!field.isEmpty() && mode.equals("number") && scene.nodes.stream()
+            .noneMatch(node -> Double.isFinite(NodeColors.number(Scene.fieldValue(node, field))))) {
+            throw new IllegalArgumentException("此字段没有可用于渐变色的数值");
+        }
+        scene.colorField = field;
+        scene.colorMode = mode;
+        scene.refreshViewCaches();
+    }
+
+    private static void applyLegend(Scene scene, JsonObject options) {
+        String position = str(options, "position", scene.legendPosition);
+        if (!Set.of("top", "bottom").contains(position)) throw new IllegalArgumentException("Unknown legend position");
+        scene.legendPosition = position;
+        if (options.has("hidden")) scene.hiddenLegendItems = new LinkedHashSet<>(strings(options, "hidden"));
+        if (options.has("labels")) {
+            var labels = new LinkedHashMap<String, String>();
+            for (var entry : options.getAsJsonObject("labels").entrySet()) {
+                String value = entry.getValue().getAsString().strip();
+                if (value.length() > 160) throw new IllegalArgumentException("单项图例名称不能超过 160 个字符");
+                if (!value.isEmpty()) labels.put(entry.getKey(), value);
+            }
+            scene.legendLabels = labels;
+        }
+    }
+
     private static void focus(Scene scene, List<String> ids) {
         if (ids.isEmpty()) {
             scene.fit();

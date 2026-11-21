@@ -136,8 +136,9 @@ async def check_mcp(client,tmp_path):
     params=StdioServerParameters(command=sys.executable,args=['-X','utf8',str(ROOT/'bridge/server.py')],env=dict(os.environ,GEPHI3D_URL=client.url,GEPHI3D_TOKEN_FILE=str(client.token_file)))
     async with stdio_client(params) as (reader,writer):
         async with ClientSession(reader,writer) as session:
-            await session.initialize();listed=await session.list_tools();assert len(listed.tools)==29
-            assert {'gephi3d_import_graph', 'gephi3d_auto_draw', 'gephi3d_geography', 'gephi3d_supply_chain_map', 'gephi3d_export_paper'} <= {
+            await session.initialize();listed=await session.list_tools();assert len(listed.tools)==32
+            assert {'gephi3d_import_graph', 'gephi3d_auto_draw', 'gephi3d_geography', 'gephi3d_supply_chain_map', 'gephi3d_export_paper',
+                    'gephi3d_layer_visibility', 'gephi3d_node_colors', 'gephi3d_paper_legend'} <= {
                 tool.name for tool in listed.tools
             }
             result=await session.call_tool('gephi3d_status',{});assert not result.is_error
@@ -223,6 +224,34 @@ async def check_supply_chain_map(session, client, tmp_path):
     restored = (await call('gephi3d_geography', {**toggle, 'enabled': False}))['scene']
     assert restored['visible_nodes'] == 4 and restored['camera'] == original['camera']
     assert not restored['style']['arrows'] and restored['style']['arrow_scale'] == 2.2
+
+    await call('gephi3d_select', {'workspace_id': workspace, 'ids': ['001']})
+    scope = (await call('gephi3d_filter', {'workspace_id': workspace, 'hops': 2, 'min_weight': 2}))['scene']
+    assert (scope['visible_nodes'], scope['visible_edges']) == (3, 2)
+    city = (await call('gephi3d_filter', {'workspace_id': workspace, 'city_query': '合肥'}))['scene']
+    assert (city['visible_nodes'], city['visible_edges']) == (1, 0)
+    await call('gephi3d_filter', {'workspace_id': workspace})
+    await call('gephi3d_layer', {'workspace_id': workspace, 'attribute': 'community'})
+    filtered = (await call('gephi3d_layer_visibility', {'workspace_id': workspace, 'hidden': ['乙']}))['scene']
+    before = client.command('save_scene', workspace)['scene']
+    hidden_ids = {node['id'] for node in before['nodes'] if node['community'] == '乙'}
+    assert hidden_ids == {'003', '004'}
+    assert (filtered['visible_nodes'], filtered['visible_edges']) == (2, 1)
+    await call('gephi3d_node_colors', {'workspace_id': workspace, 'field': 'degree', 'mode': 'number'})
+    await call('gephi3d_paper_legend', {'workspace_id': workspace, 'position': 'top',
+                                     'hidden': ['focus'], 'labels': {'selection': '重点企业'}})
+    scoped_svg = tmp_path/'scoped.svg'
+    await call('gephi3d_export_paper', {'workspace_id': workspace, 'path': str(scoped_svg)})
+    scoped = ET.parse(scoped_svg)
+    legend = scoped.find(".//s:g[@id='legend']", ns)
+    assert legend.get('data-position') == 'top'
+    assert legend.find("s:text[@data-legend-item='selection']", ns).text == '重点企业'
+    assert legend.find("s:text[@data-legend-item='focus']", ns) is None
+    assert scoped.find(".//s:circle[@data-node-id='003']", ns) is None
+    assert scoped.find(".//s:circle[@data-node-id='004']", ns) is None
+    assert scoped.find(".//s:path[@data-target='003']", ns) is None
+    color = scoped.find(".//s:circle[@data-node-id='002']", ns).get('fill')
+    assert color == '#164671'
 
 
 async def check_api_import(session,client,tmp_path,previous):

@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.7-alpha — 2026-11-21
+
+- Add desktop graph filters for node name or code, city, community, minimum degree/weight, and one- or two-hop neighborhoods.
+- Add a layer visibility dialog and shared visibility rules for the viewport and exports.
+- Add categorical and continuous node coloring by an existing field.
+- Add editable SVG legend entries and top/bottom positioning. Save view settings in `.gephi` projects.
+- Extend the MCP filter tool and add tools for layer visibility, field coloring and paper legends.
+
 ## v0.1.6-alpha — 2026-11-21
 
 - 在三维面板加入「导出论文图（SVG）」，可填写图题、成图宽度和箭头含义。节点、连线、箭头及文字为可编辑对象。

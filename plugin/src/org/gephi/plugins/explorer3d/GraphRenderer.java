@@ -69,7 +69,18 @@ public final class GraphRenderer implements GLEventListener {
             for(Scene.Vertex v:new Scene.Vertex[]{a,b}){positions.put((float)v.x).put((float)v.y).put((float)v.z);colors.put(hot?1f:s.dark?.5f:.35f).put(hot?.68f:s.dark?.65f:.4f).put(hot?.2f:s.dark?.8f:.45f).put(alpha);}lines+=2;}
         positions.flip();colors.flip();gl.glEnableClientState(GL2.GL_VERTEX_ARRAY);gl.glEnableClientState(GL2.GL_COLOR_ARRAY);gl.glVertexPointer(3,GL.GL_FLOAT,0,positions);gl.glColorPointer(4,GL.GL_FLOAT,0,colors);gl.glLineWidth((float)s.edgeWidth);gl.glDepthMask(false);gl.glDrawArrays(GL.GL_LINES,0,lines);gl.glDepthMask(true);
         positions=Buffers.newDirectFloatBuffer(Math.max(3,nn*3));colors=Buffers.newDirectFloatBuffer(Math.max(4,nn*4));FloatBuffer sizes=Buffers.newDirectFloatBuffer(Math.max(1,nn));int points=0;
-        for(Scene.Vertex v:s.nodes)if(s.visible(v)){positions.put((float)v.x).put((float)v.y).put((float)v.z);boolean selected=s.selection.contains(v.id);colors.put(selected?1f:v.r).put(selected?.82f:v.g).put(selected?.3f:v.b).put(s.highlight.isEmpty()||s.emphasized(v)?1:.15f);sizes.put((float)(v.size*(selected?1.5:1)));points++;}
+        NodeColors nodeColors = s.colors();
+        for (Scene.Vertex v : s.nodes) if (s.visible(v)) {
+            positions.put((float)v.x).put((float)v.y).put((float)v.z);
+            boolean selected = s.selection.contains(v.id);
+            if (nodeColors.active()) {
+                int color = selected ? DiagramRenderer.ACCENT : nodeColors.color(v);
+                colors.put(((color >> 16) & 255) / 255f).put(((color >> 8) & 255) / 255f).put((color & 255) / 255f);
+            } else colors.put(selected ? 1f : v.r).put(selected ? .82f : v.g).put(selected ? .3f : v.b);
+            colors.put(s.highlight.isEmpty() || s.emphasized(v) ? 1 : .15f);
+            sizes.put((float)(v.size * (selected ? 1.5 : 1)));
+            points++;
+        }
         positions.flip();colors.flip();sizes.flip();gl.glVertexPointer(3,GL.GL_FLOAT,0,positions);gl.glColorPointer(4,GL.GL_FLOAT,0,colors);
         drawPoints(gl, sizes, points, (float)(s.nodeScale*height/900.0), s.perspective, false);
         gl.glDisableClientState(GL2.GL_VERTEX_ARRAY);gl.glDisableClientState(GL2.GL_COLOR_ARRAY);

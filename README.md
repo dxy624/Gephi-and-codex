@@ -1,8 +1,8 @@
 # Gephi 3D Explorer
 
-**v0.1.6-alpha · Windows · Gephi 0.11.3 / 0.11.4**
+**v0.1.7-alpha · Windows · Gephi 0.11.3 / 0.11.4**
 
-[下载 v0.1.6-alpha 完整安装包](https://github.com/dxy624/Gephi-and-codex/releases/download/v0.1.6-alpha/gephi-3d-explorer-v0.1.6-alpha.zip) · [查看发行说明](https://github.com/dxy624/Gephi-and-codex/releases/tag/v0.1.6-alpha)
+[下载 v0.1.7-alpha 完整安装包](https://github.com/dxy624/Gephi-and-codex/releases/download/v0.1.7-alpha/gephi-3d-explorer-v0.1.7-alpha.zip) · [查看发行说明](https://github.com/dxy624/Gephi-and-codex/releases/tag/v0.1.7-alpha)
 
 在 Gephi 内旋转、分层和探索三维网络，也可让 Codex 用中文控制同一个视图。此仓库包含 Gephi 插件、独立 MCP 服务和 `gephi-3d` Skill，三者配合使用。
 
@@ -56,7 +56,7 @@ py -3.12 scripts/setup.py --gephi "D:\Apps\Gephi-0.11.4" --install-skill --confi
 py -3.12 scripts/setup.py --configure-codex --replace-gephi-connection
 ```
 
-识别到上一发行包安装的桌面插件时，安装器会备份旧插件并升级。若安装器提示存在其他来源的模块，请在 Gephi 插件管理器里检查，可通过其中的「已下载」页安装新版 [NBM](dist/gephi-3d-explorer-0.1.6.nbm)。若此前编辑过同名 Skill，保留个人版本即可。安装后重开 Gephi 与 Codex。
+识别到上一发行包安装的桌面插件时，安装器会备份旧插件并升级。若安装器提示存在其他来源的模块，请在 Gephi 插件管理器里检查，可通过其中的「已下载」页安装新版 [NBM](dist/gephi-3d-explorer-0.1.7.nbm)。若此前编辑过同名 Skill，保留个人版本即可。安装后重开 Gephi 与 Codex。
 
 ## 3. 启动
 
@@ -104,13 +104,22 @@ py -3.12 scripts/setup.py --mode isolated --install-skill --configure-codex
 
 导入上限为 20 MB、10000 节点、100000 边；不支持动态图或嵌套 GEXF 节点，行政层级可使用普通节点、parent 属性和有向边表示。错误文件不会覆盖已有图。
 
-升级后重新打开所选模式的 Gephi 和 Codex，即可加载 29 个 MCP 工具。
+升级后重新打开所选模式的 Gephi 和 Codex，即可加载 32 个 MCP 工具。
 
 要一次完成导入、布局、配色和展示，可让 Codex 调用 `gephi3d_auto_draw`。它能直接读带节点表和连接表的 XLSX，或读静态 GEXF；按社区配色，用权重控制线宽，有向边才显示箭头。没有数据时，可以明确要求生成合成例子。
 
 供应链地理图使用 `gephi3d_supply_chain_map`。提供一份 GEXF、CSV 或 Stata `.dta` 关系数据，一个本地 GeoJSON 底图，以及与底图坐标基准一致的城市中心坐标表。按城市代码匹配企业，指定链主编号后，地图上会放大链主社区、加粗社区内连线。地图**默认关闭**，在当前工作区右侧勾选「地理地图」即可手动切换；关闭会恢复普通视图。发行包中的预览是合成网络。底图和真实企业数据由用户提供。[字段与示例](examples/README.md)
 
-## 5. 保存与导出
+## 5. 筛选、分层和字段配色
+
+- **筛选**：按企业代码或名称、城市、社区、最小度数或边权缩小范围。要看某家企业的上下游，先用三维面板顶部的「查找」选中它，再用「只看一阶邻居」或「只看两阶邻居」。查看完整邻居时，将企业、城市、社区和边权条件留空，最小度数设为 0。
+- **层开关**：选择分层字段，逐层勾选显示。隐藏层同时隐藏该层企业和相连的边，SVG 和 PNG 导出沿用这套设置。
+- **字段配色**：按城市、行业、社区等已有字段做类别配色，也可按连接数等数值字段做渐变。选「使用外观预设」可恢复预设配色。
+- **论文图例**：在 SVG 导出窗口点「编辑图例」。可预览符号、逐项隐藏或改名，再选图例放在图上方或下方。
+
+这些设置随 `.gephi` 工程保存。Codex 可通过 `gephi3d_filter`、`gephi3d_layer_visibility`、`gephi3d_node_colors` 和 `gephi3d_paper_legend` 设置。
+
+## 6. 保存与导出
 
 向 Codex 明确指定**可写文件夹的完整路径**。保存 `.gephi` 以保留网络、三维坐标、相机和书签；导出默认 6000×4000 PNG，也可生成嵌入该图和中文说明的 PDF。导出附带场景 JSON。
 
@@ -124,7 +133,7 @@ py -3.12 scripts/setup.py --mode isolated --install-skill --configure-codex
 
 ## 已知限制与验证
 
-这是可运行原型，仍缺完整筛选面板、层隐藏控件、任意属性配色和完整论文图例编辑；当前以 MCP 完成筛选与部分样式调整。框选暂不显示拖拽矩形，标签数量有限。无时间动画或三轴拖拽编辑，JSON 快照暂不能导回。
+筛选与字段配色以工程内已有的节点字段为准。论文图例支持逐项显示、改名和上下位置，多类别图例会合并为简要说明。框选暂不显示拖拽矩形，标签数量有限。无时间动画或三轴拖拽编辑，JSON 快照暂不能导回。
 
 本次桌面安装针对 Windows，先前的三维模块在 Gephi 0.11.3 上完成验收。当前发布的实测版本和项目见 [验收说明](docs/VALIDATION.md)。
 

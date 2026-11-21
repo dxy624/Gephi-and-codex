@@ -23,6 +23,15 @@ public final class Scene {
     public double nodeScale = 1, edgeWidth = 1, minWeight = -Double.MAX_VALUE;
     public int minDegree;
     public String communityFilter = "", layerAttribute = "";
+    public String nodeQuery = "", cityQuery = "", colorField = "", colorMode = "category";
+    public int neighborhoodHops;
+    public Set<String> neighborhoodRoots = new LinkedHashSet<>();
+    public Set<String> hiddenLayers = new LinkedHashSet<>();
+    public String legendPosition = "bottom";
+    public Set<String> hiddenLegendItems = new LinkedHashSet<>();
+    public Map<String,String> legendLabels = new LinkedHashMap<>();
+    private transient Set<String> neighborhoodNodes;
+    private transient NodeColors colors;
     public double layerSpacing = 160;
     public List<Vertex> nodes = new ArrayList<>();
     public List<Link> edges = new ArrayList<>();
@@ -56,13 +65,88 @@ public final class Scene {
         return copy;
     }
     public Vertex find(String id) { for(Vertex n:nodes) if(n.id.equals(id)) return n; throw new IllegalArgumentException("Unknown node: "+id); }
-    public boolean visible(Vertex n) { return (!geographyEnabled || geography.positions.containsKey(n.id)) && n.degree>=minDegree && (communityFilter.isEmpty() || n.community.equals(communityFilter)) && (!isolate || highlight.isEmpty() || highlight.contains(n.id)); }
+    public boolean visible(Vertex n) {
+        return located(n) && passesFilters(n);
+    }
+
+    boolean located(Vertex node) {
+        return !geographyEnabled || geography.positions.containsKey(node.id);
+    }
+
+    boolean passesFilters(Vertex node) {
+        return node.degree >= minDegree && (communityFilter.isEmpty() || node.community.equals(communityFilter))
+            && (layerAttribute.isEmpty() || !hiddenLayers.contains(fieldValue(node, layerAttribute)))
+            && (nodeQuery.isEmpty() || contains(node.id, nodeQuery) || contains(node.label, nodeQuery)
+                || contains(node.attributes.get("firm_code"), nodeQuery))
+            && (cityQuery.isEmpty() || contains(node.attributes.get("city_code"), cityQuery)
+                || contains(node.attributes.get("city_name"), cityQuery)
+                || contains(node.attributes.get("reported_city_name"), cityQuery))
+            && (!isolate || highlight.isEmpty() || highlight.contains(node.id))
+            && (neighborhoodHops == 0 || neighborhood().contains(node.id));
+    }
+
+    boolean visible(Link edge) {
+        return edge.weight >= minWeight && visible(nodes.get(edge.source)) && visible(nodes.get(edge.target));
+    }
+
+    private static boolean contains(String value, String query) {
+        return value != null && value.toLowerCase(Locale.ROOT).contains(query);
+    }
+
+    void refreshViewCaches() {
+        neighborhoodNodes = null;
+        colors = null;
+    }
+
+    private Set<String> neighborhood() {
+        if (neighborhoodNodes == null) {
+            Set<Integer> roots = new LinkedHashSet<>();
+            for (int i = 0; i < nodes.size(); i++) if (neighborhoodRoots.contains(nodes.get(i).id)) roots.add(i);
+            Set<String> found = new HashSet<>();
+            for (int i : reachable(roots, neighborhoodHops, minWeight)) found.add(nodes.get(i).id);
+            neighborhoodNodes = found;
+        }
+        return neighborhoodNodes;
+    }
+
+    static String fieldValue(Vertex node, String field) {
+        return switch (field) {
+            case "community" -> node.community;
+            case "degree" -> Integer.toString(node.degree);
+            default -> node.attributes.getOrDefault(field, "");
+        };
+    }
+
+    SortedSet<String> fields() {
+        var fields = new TreeSet<>(Set.of("community", "degree"));
+        for (Vertex node : nodes) fields.addAll(node.attributes.keySet());
+        fields.remove("");
+        return fields;
+    }
+
+    SortedSet<String> layers() {
+        var values = new TreeSet<String>();
+        if (!layerAttribute.isEmpty()) for (Vertex node : nodes) values.add(fieldValue(node, layerAttribute));
+        return values;
+    }
+
+    NodeColors colors() {
+        if (colors == null) colors = NodeColors.create(this);
+        return colors;
+    }
     public boolean emphasized(Vertex n) { return selection.contains(n.id) || highlight.contains(n.id); }
     public boolean showsArrows() { return arrows || (geographyEnabled && !arrowsManuallySet); }
     public Map<String,Object> status() {
         Map<String,Object> m=new LinkedHashMap<>();
         m.put("workspace_id",workspaceId);m.put("revision",revision);m.put("nodes",nodes.size());m.put("edges",edges.size());
         m.put("visible_nodes",nodes.stream().filter(this::visible).count());
+        m.put("visible_edges",edges.stream().filter(this::visible).count());
+        m.put("filters",Map.of("node_query",nodeQuery,"city_query",cityQuery,"community",communityFilter,
+            "min_degree",minDegree,"min_weight",minWeight,"neighborhood_hops",neighborhoodHops,
+            "neighbor_roots",neighborhoodRoots));
+        m.put("hidden_layers", hiddenLayers);
+        m.put("node_colors", Map.of("field", colorField, "mode", colorMode));
+        m.put("paper_legend", Map.of("position", legendPosition, "hidden", hiddenLegendItems, "labels", legendLabels));
         m.put("selection",selection);m.put("highlight",highlight);m.put("synthetic",synthetic);m.put("source",source);m.put("template",template);m.put("seed",seed);
         m.put("camera",Map.of("yaw",yaw,"pitch",pitch,"distance",distance,"target",new double[]{targetX,targetY,targetZ},"perspective",perspective));
         m.put("bookmarks",bookmarks.keySet());m.put("layer_attribute",layerAttribute);
@@ -122,10 +206,22 @@ public final class Scene {
     }
     public void neighbors(String id,int hops) {
         if(hops<1 || hops>20)throw new IllegalArgumentException("hops must be 1..20");
-        Vertex start=find(id);List<List<Integer>> adj=adjacency(false);Set<Integer> seen=new LinkedHashSet<>();seen.add(nodes.indexOf(start));
-        Set<Integer> frontier=new LinkedHashSet<>(seen);
+        Vertex start=find(id);
+        highlight.clear();pathEdges.clear();
+        for(int i:reachable(Set.of(nodes.indexOf(start)), hops, -Double.MAX_VALUE)) highlight.add(nodes.get(i).id);
+    }
+
+    private Set<Integer> reachable(Set<Integer> roots, int hops, double threshold) {
+        List<List<Integer>> adj=new ArrayList<>();
+        for(Vertex node:nodes)adj.add(new ArrayList<>());
+        for(Link edge:edges) if(edge.weight >= threshold){
+            adj.get(edge.source).add(edge.target);
+            adj.get(edge.target).add(edge.source);
+        }
+        Set<Integer> seen=new LinkedHashSet<>(roots);
+        Set<Integer> frontier=roots;
         for(int h=0;h<hops;h++){Set<Integer> next=new LinkedHashSet<>();for(int i:frontier)for(int j:adj.get(i))if(seen.add(j))next.add(j);frontier=next;}
-        highlight.clear();pathEdges.clear();for(int i:seen)highlight.add(nodes.get(i).id);
+        return seen;
     }
     public List<String> shortestPath(String from,String to,boolean directed) {
         int s=nodes.indexOf(find(from)),t=nodes.indexOf(find(to));List<List<Integer>> adj=adjacency(directed);
@@ -140,10 +236,13 @@ public final class Scene {
     public void layer(String attribute,double spacing) {
         if(!Double.isFinite(spacing)||spacing<1||spacing>10000)throw new IllegalArgumentException("spacing must be 1..10000");
         SortedSet<String> values=new TreeSet<>();
-        for(Vertex n:nodes)values.add(attribute.equals("community")?n.community:n.attributes.getOrDefault(attribute,"(missing)"));
+        for(Vertex n:nodes)values.add(fieldValue(n, attribute));
         List<String> order=new ArrayList<>(values);
         try { order.sort(Comparator.comparingDouble(Double::parseDouble)); } catch(NumberFormatException ex){Collections.sort(order);}
-        for(Vertex n:nodes)if(!n.pinned)n.z=(order.indexOf(attribute.equals("community")?n.community:n.attributes.getOrDefault(attribute,"(missing)"))-(order.size()-1)/2.0)*spacing;
+        Map<String, Integer> indices = new HashMap<>();
+        for (int i = 0; i < order.size(); i++) indices.put(order.get(i), i);
+        for(Vertex n:nodes)if(!n.pinned)n.z=(indices.get(fieldValue(n, attribute))-(order.size()-1)/2.0)*spacing;
+        if (!layerAttribute.equals(attribute)) hiddenLayers.clear();
         layerAttribute=attribute;layerSpacing=spacing;
     }
 }

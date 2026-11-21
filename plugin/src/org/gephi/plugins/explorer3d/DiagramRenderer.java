@@ -75,6 +75,7 @@ final class DiagramRenderer {
             }
         }
         Map<String, Integer> palette = palette(scene);
+        NodeColors nodeColors = scene.colors();
         double maxRank = 0;
         for (int i = 0; i < ranks.length; i++) {
             if (!weighted || maxWeight == 0) ranks[i] = scene.nodes.get(i).degree;
@@ -113,6 +114,7 @@ final class DiagramRenderer {
                     * perspectiveScale * (selected ? 1.5 : 1)));
                 color = originalColor(vertex);
             }
+            if (nodeColors.active()) color = nodeColors.color(vertex);
             if (selected) color = ACCENT;
             float alpha = scene.highlight.isEmpty() || emphasized ? 1 : .24f;
             if (geographic && !leaderGroups.isEmpty() && !inLeaderCommunity && !selected) alpha *= .56f;
@@ -146,7 +148,7 @@ final class DiagramRenderer {
             if (from.leaderCommunity && to.leaderCommunity && from.vertex.community.equals(to.vertex.community)) {
                 width *= 1.85f;
                 alpha = (float) (.64 + .25 * relative);
-                color = projection.palette.getOrDefault(from.vertex.community, color);
+                if (!scene.colors().active()) color = projection.palette.getOrDefault(from.vertex.community, color);
             } else if (!scene.geography.communities.isEmpty() && !hot) alpha = (float) (.20 + .19 * relative);
         }
         float arrowLength = scene.showsArrows() && edge.directed
@@ -202,9 +204,11 @@ final class DiagramRenderer {
         for (Scene.Vertex node : scene.nodes) if (!node.community.isBlank()) groups.add(node.community);
         Map<String, Integer> result = new HashMap<>();
         int color = 0;
-        for (String group : groups) result.put(group, PALETTE[color++ % PALETTE.length]);
+        for (String group : groups) result.put(group, paletteColor(color++));
         return result;
     }
+
+    static int paletteColor(int index) { return PALETTE[index % PALETTE.length]; }
 
     static EdgeShape edgeShape(Node from, Node to, float unit, EdgeStyle style) {
         boolean curved = style.curved;
@@ -415,7 +419,7 @@ final class DiagramRenderer {
         return (Math.round(node.r * 255) << 16) | (Math.round(node.g * 255) << 8) | Math.round(node.b * 255);
     }
 
-    private static int blend(int a, int b, double share) {
+    static int blend(int a, int b, double share) {
         int rgb = 0;
         for (int shift = 0; shift <= 16; shift += 8) {
             int start = (a >> shift) & 255;

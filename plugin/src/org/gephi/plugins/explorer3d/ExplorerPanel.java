@@ -62,6 +62,15 @@ public final class ExplorerPanel extends TopComponent {
         toggles.add(styleSlider("箭头大小", arrowScale, "arrow_scale", "放大或缩小箭头；权重较高的边仍有较大箭头"));
         toggles.add(styleSlider("线条粗细", edgeWidth, "edge_width", "调整连线宽度；保留边权重造成的粗细差异"));
         toggles.add(geography);
+        var viewControls = new JPanel(new GridLayout(0, 2, 4, 3));
+        button(viewControls, "筛选…", () -> ViewDialogs.filter(this));
+        button(viewControls, "层开关…", () -> ViewDialogs.layers(this));
+        button(viewControls, "字段配色…", () -> ViewDialogs.colors(this));
+        button(viewControls, "论文图例…", () -> {
+            Scene scene = engine.requireScene();
+            ViewDialogs.legend(this, this, 183, PaperSvg.defaultDirection(scene));
+        });
+        toggles.add(viewControls);
         visualControls.add(toggles, BorderLayout.SOUTH);
         side.add(visualControls, BorderLayout.NORTH);
         button(controls,"一阶邻居",()->selectedNeighbor(1));button(controls,"两阶邻居",()->selectedNeighbor(2));button(controls,"两节点最短路径",()->{Scene s=engine.scene();if(s==null||s.selection.size()!=2){status.setText("请按 Ctrl 选择两个节点");return;}String[] ids=s.selection.toArray(String[]::new);act("path","source",ids[0],"target",ids[1],"directed",true);});
@@ -95,13 +104,15 @@ public final class ExplorerPanel extends TopComponent {
         options.add(new JLabel("成图宽度（毫米）")); options.add(width);
         options.add(new JLabel("图标题")); options.add(title);
         options.add(new JLabel("箭头含义")); options.add(direction);
+        button(options, "编辑图例…", () ->
+            ViewDialogs.legend(this, chooser, ((Number) width.getValue()).doubleValue(), direction.getText()));
         chooser.setAccessory(options);
         if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
         Scene snapshot = engine.paperSnapshot(workspace);
         String selectedPath = chooser.getSelectedFile().getAbsolutePath();
         String path = selectedPath.toLowerCase(Locale.ROOT).endsWith(".svg") ? selectedPath : selectedPath + ".svg";
-        int viewWidth = canvas != null && canvas.getWidth() >= 300 ? canvas.getWidth() : 1200;
-        int viewHeight = canvas != null && canvas.getHeight() >= 200 ? canvas.getHeight() : 800;
+        int viewWidth = paperViewWidth();
+        int viewHeight = paperViewHeight();
         double paperWidth = ((Number) width.getValue()).doubleValue();
         String figureTitle = title.getText(), directionLabel = direction.getText();
         status.setText("正在导出论文图…");
@@ -122,6 +133,9 @@ public final class ExplorerPanel extends TopComponent {
             }
         }.execute();
     }
+
+    int paperViewWidth() { return canvas != null && canvas.getWidth() >= 300 ? canvas.getWidth() : 1200; }
+    int paperViewHeight() { return canvas != null && canvas.getHeight() >= 200 ? canvas.getHeight() : 800; }
     private JPanel styleSlider(String name, JSlider slider, String option, String tooltip) {
         JPanel row = new JPanel(new BorderLayout(5, 0));
         JLabel label = new JLabel(name);
@@ -142,13 +156,21 @@ public final class ExplorerPanel extends TopComponent {
         return row;
     }
     void act(String op,Object... args){JsonObject j=new JsonObject();j.addProperty("operation",op);Scene s=engine.scene();if(s!=null)j.addProperty("workspace_id",s.workspaceId);for(int i=0;i<args.length;i+=2)j.add(args[i].toString(),Scene.JSON.toJsonTree(args[i+1]));try{engine.command(j);}catch(Exception ex){status.setText("操作失败："+ex.getMessage());}}
+    void actIn(int workspace, long revision, String operation, Object... args) {
+        var command = new JsonObject();
+        command.addProperty("operation", operation);
+        command.addProperty("workspace_id", workspace);
+        command.addProperty("expected_revision", revision);
+        for (int i = 0; i < args.length; i += 2) command.add(args[i].toString(), Scene.JSON.toJsonTree(args[i + 1]));
+        engine.command(command);
+    }
     void selectionAct(String op,Object... args){Scene s=engine.scene();if(s==null)return;Object[] a=new Object[args.length+2];a[0]="ids";a[1]=new ArrayList<>(s.selection);System.arraycopy(args,0,a,2,args.length);act(op,a);}
     void selectedNeighbor(int hops){Scene s=engine.scene();if(s==null||s.selection.isEmpty())return;act("neighbors","id",s.selection.iterator().next(),"hops",hops);}
     void search(){Scene s=engine.scene();if(s==null)return;String q=search.getText().trim().toLowerCase(Locale.ROOT);if(q.isEmpty())return;for(Scene.Vertex n:s.nodes)if(n.label.toLowerCase(Locale.ROOT).contains(q)||n.id.toLowerCase(Locale.ROOT).contains(q)){act("select","ids",List.of(n.id));act("focus","ids",List.of(n.id));return;}status.setText("未找到节点");}
     public void refresh(){
         if(!SwingUtilities.isEventDispatchThread()){SwingUtilities.invokeLater(this::refresh);return;}
         Scene s=engine.scene();if(s==null){status.setText("打开一个网络，或生成示例。左拖旋转，右拖平移，滚轮缩放，Ctrl 多选。");properties.setText("Gephi 3D Explorer 0.1 alpha\n\n三维视图独立保存位置。\nAPI: 127.0.0.1:"+ApiServer.port());}
-        else{status.setText(s.nodes.size()+" 节点 / "+s.edges.size()+" 边  · 布局 "+engine.jobState+" #"+engine.iteration+" · 左拖旋转 · 右拖平移 · 滚轮缩放 · Ctrl 多选");StringBuilder p=new StringBuilder(s.synthetic?"【合成示例，非真实观测】\n\n":"");for(String id:s.selection){try{Scene.Vertex n=s.find(id);p.append(n.label).append("\nID: ").append(n.id).append("\n度数: ").append(n.degree).append("\n固定: ").append(n.pinned).append("\n");n.attributes.forEach((k,v)->p.append(k).append(": ").append(v).append("\n"));p.append("\n");}catch(IllegalArgumentException ignore){}}properties.setText(p.toString());}
+        else{status.setText("显示 "+s.nodes.stream().filter(s::visible).count()+"/"+s.nodes.size()+" 节点 · "+s.edges.stream().filter(s::visible).count()+"/"+s.edges.size()+" 边 · 布局 "+engine.jobState+" #"+engine.iteration+" · Ctrl 多选");StringBuilder p=new StringBuilder(s.synthetic?"【合成示例，非真实观测】\n\n":"");for(String id:s.selection){try{Scene.Vertex n=s.find(id);p.append(n.label).append("\nID: ").append(n.id).append("\n度数: ").append(n.degree).append("\n固定: ").append(n.pinned).append("\n");n.attributes.forEach((k,v)->p.append(k).append(": ").append(v).append("\n"));p.append("\n");}catch(IllegalArgumentException ignore){}}properties.setText(p.toString());}
         updatingStyleControls = true;
         styleChoice.setEnabled(s != null);
         edgeArrows.setEnabled(s != null);

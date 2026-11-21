@@ -7,7 +7,7 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from gephi3d_client import Gephi3D
 
-mcp = MCPServer('gephi-3d', version='0.1.6-alpha', instructions='Use the local Gephi plugin API for graph generation, import, exploration and export. These tools require no desktop input. Report connection/capability failures; do not fall back to desktop control unless the user explicitly requests interface operation. Inspect rendering through plugin exports, not desktop screenshots.')
+mcp = MCPServer('gephi-3d', version='0.1.7-alpha', instructions='Use the local Gephi plugin API for graph generation, import, exploration and export. These tools require no desktop input. Report connection/capability failures; do not fall back to desktop control unless the user explicitly requests interface operation. Inspect rendering through plugin exports, not desktop screenshots.')
 client = Gephi3D()
 
 def gephi_tool():
@@ -121,14 +121,45 @@ def gephi3d_clear_highlight(workspace_id: int) -> dict:
     return client.command('clear_highlight', workspace_id)
 
 @gephi_tool()
-def gephi3d_filter(workspace_id: int, min_degree: int=0, min_weight: float=-1e100, community: str='') -> dict:
-    """Set view filters; 0 degree, very low weight and empty community restore all."""
-    return client.command('filter', workspace_id, min_degree=min_degree, min_weight=min_weight, community=community)
+def gephi3d_filter(workspace_id: int, min_degree: int=0, min_weight: float=-1e100, community: str='',
+                   node_query: str='', city_query: str='', hops: int=0, roots: list[str] | None=None) -> dict:
+    """Replace view filters. Leave fields empty and hops zero to clear. With 0.1.7+, match node name/code and city, or show 1–2 hops about roots (defaults to current selection). Hops use links meeting min_weight."""
+    options = dict(min_degree=min_degree, min_weight=min_weight, community=community)
+    if node_query or city_query or hops or roots is not None:
+        require_view_controls()
+        options.update(node_query=node_query, city_query=city_query, hops=hops)
+        if roots is not None:
+            options['roots'] = roots
+    return client.command('filter', workspace_id, **options)
+
+def require_view_controls() -> None:
+    if 'view_controls' not in client.state().get('capabilities', []):
+        raise ToolError('The connected Gephi plugin needs version 0.1.7 or later for these view controls.')
 
 @gephi_tool()
 def gephi3d_layer(workspace_id: int, attribute: str='community', spacing: float=160) -> dict:
     """Map attribute values to Z layers; numeric values sort numerically. Pinned nodes remain fixed."""
     return client.command('layer', workspace_id, attribute=attribute, spacing=spacing)
+
+@gephi_tool()
+def gephi3d_layer_visibility(workspace_id: int, hidden: list[str]) -> dict:
+    """Replace hidden layer values for the current layer attribute. An empty list shows all. Empty string denotes the missing-value layer."""
+    require_view_controls()
+    return client.command('layer_visibility', workspace_id, hidden=hidden)
+
+@gephi_tool()
+def gephi3d_node_colors(workspace_id: int, field: str='', mode: str='category') -> dict:
+    """Color nodes by field using category or number (gradient). Empty field restores the preset. Selection remains highlighted."""
+    require_view_controls()
+    return client.command('node_colors', workspace_id, field=field, mode=mode)
+
+@gephi_tool()
+def gephi3d_paper_legend(workspace_id: int, position: str | None=None, hidden: list[str] | None=None,
+                         labels: dict[str, str] | None=None) -> dict:
+    """Set SVG legend position (top/bottom), hidden items and renamed items. Keys include selection, focus, direction, weight_low and weight_high. SVG text data-legend-item attributes identify other items. Provided lists/maps replace the corresponding settings."""
+    require_view_controls()
+    options = {k: v for k, v in locals().items() if k != 'workspace_id' and v is not None}
+    return client.command('paper_legend', workspace_id, **options)
 
 @gephi_tool()
 def gephi3d_pin(workspace_id: int, ids: list[str], pinned: bool=True) -> dict:

@@ -37,7 +37,7 @@ final class PaperSvg {
                         boolean focus) { }
     private record Label(String id, String text, float x, float y, boolean priority, Rectangle2D box,
                          float anchorX, float anchorY, boolean connector, float size) { }
-    private record Key(String text, int color, float size, boolean line, boolean arrow) { }
+    record Key(String id, String text, int color, float size, boolean line, boolean arrow) { }
     private record PlacedKey(Key key, float x, int row) { }
 
     private final Scene scene;
@@ -69,7 +69,7 @@ final class PaperSvg {
             !Double.isFinite(widthMm) || widthMm < 60 || widthMm > 300) {
             throw new IllegalArgumentException("View size must be 300–8000 by 200–8000, with a paper width of 60–300 mm");
         }
-        PaperSvg paper = new PaperSvg(scene, width, height, widthMm, title, direction);
+        PaperSvg paper = new PaperSvg(scene, width, height, widthMm, title, direction, true);
         try {
             Path temporary = Files.createTempFile(output.getParent(), ".gephi-paper-", ".tmp");
             try {
@@ -89,7 +89,7 @@ final class PaperSvg {
             "priority_labels", paper.priorityIds.size());
     }
 
-    private PaperSvg(Scene scene, int width, int height, double widthMm, String title, String direction) {
+    private PaperSvg(Scene scene, int width, int height, double widthMm, String title, String direction, boolean includeLabels) {
         this.scene = scene;
         this.width = width;
         this.height = height;
@@ -112,7 +112,7 @@ final class PaperSvg {
         prepareEdges();
         focusObstacles = visible.stream().filter(node -> priorityIds.contains(node.vertex().id)
             || relatedIds.contains(node.vertex().id)).toList();
-        prepareLabels();
+        if (includeLabels) prepareLabels();
         prepareLegend();
     }
 
@@ -173,15 +173,20 @@ final class PaperSvg {
             ? "供应商 → 客户" : "起点 → 终点";
     }
 
+    static List<Key> legendItems(Scene snapshot, int width, int height, double widthMm, String direction) {
+        return List.copyOf(new PaperSvg(snapshot, width, height, widthMm, "", direction, false).keys);
+    }
+
     private void prepareEdges() {
         float contextAlpha = Math.max(.05f, Math.min(.17f, (float) (3.5 / Math.sqrt(scene.edges.size() + 1))));
         for (Scene.Link link : scene.edges) {
             if (link.weight < scene.minWeight) continue;
+            Scene.Vertex source = scene.nodes.get(link.source), target = scene.nodes.get(link.target);
+            if (!scene.passesFilters(source) || !scene.passesFilters(target)) continue;
             boolean focus = focusActive && isFocusEdge(link);
             if (focus) {
                 focusEdges++;
-                if (scene.geographyEnabled && (!scene.geography.positions.containsKey(scene.nodes.get(link.source).id)
-                    || !scene.geography.positions.containsKey(scene.nodes.get(link.target).id))) unlocatedFocusEdges++;
+                if (!scene.located(source) || !scene.located(target)) unlocatedFocusEdges++;
             }
             var from = projection.nodes()[link.source];
             var to = projection.nodes()[link.target];
@@ -288,17 +293,20 @@ final class PaperSvg {
         boolean selected = visible.stream().anyMatch(n -> scene.selection.contains(n.vertex().id));
         if (leaders || selected) {
             String description = leaders && selected ? "链主 / 已选节点" : leaders ? "链主" : "已选节点";
-            keys.add(new Key(description, DiagramRenderer.ACCENT, 0, false, false));
+            keys.add(new Key("selection", description, DiagramRenderer.ACCENT, 0, false, false));
         }
         if (drawnFocusEdges > 0) {
-            keys.add(new Key("重点关系", FOCUS_INK, fontSize * .2f, true, false));
+            keys.add(new Key("focus", "重点关系", FOCUS_INK, fontSize * .2f, true, false));
+        }
+        if (scene.colors().active()) {
+            addFieldKeys(scene.colors());
         } else if (!focusActive && projection.weighted()) {
-            keys.add(new Key("节点色深 · " + (projection.maxWeight() > 0 ? "连接边权合计" : "度数"), 0x14604d, 0, false, false));
+            keys.add(new Key("weighted_nodes", "节点色深 · " + (projection.maxWeight() > 0 ? "连接边权合计" : "度数"), 0x14604d, 0, false, false));
         } else if (!focusActive && !projection.classic()) {
             addCommunityKeys();
         }
         if (edges.stream().anyMatch(edge -> edge.link.directed)) {
-            if (drawnArrows > 0) keys.add(new Key(direction, CONTEXT_INK, fontSize * .1f, true, true));
+            if (drawnArrows > 0) keys.add(new Key("direction", direction, CONTEXT_INK, fontSize * .1f, true, true));
             else notes.add("有向关系 " + direction + "（箭头已关闭）");
         }
         if (!projection.classic() && !edges.isEmpty()) {
@@ -307,8 +315,8 @@ final class PaperSvg {
             Edge high = samples.stream().max(Comparator.comparingDouble(e -> e.link.weight)).orElseThrow();
             if (low.link.weight != high.link.weight) {
                 int ink = drawnFocusEdges > 0 ? FOCUS_INK : CONTEXT_INK;
-                keys.add(new Key("边权 " + weight(low.link.weight), ink, low.style.width(), true, false));
-                keys.add(new Key("边权 " + weight(high.link.weight), ink, high.style.width(), true, false));
+                keys.add(new Key("weight_low", "边权 " + weight(low.link.weight), ink, low.style.width(), true, false));
+                keys.add(new Key("weight_high", "边权 " + weight(high.link.weight), ink, high.style.width(), true, false));
             }
         }
         if (focusEdges > 0) notes.add("重点关系 " + drawnFocusEdges + " / " + focusEdges + " 条入图"
@@ -320,6 +328,35 @@ final class PaperSvg {
         if (scene.synthetic) notes.add("合成示例，非真实观测");
     }
 
+    private void addFieldKeys(NodeColors colors) {
+        String field = colors.field();
+        List<Scene.Vertex> colored = visible.stream().filter(node -> !node.selected()).map(DiagramRenderer.Node::vertex).toList();
+        if (colored.isEmpty()) return;
+        String prefix = "field:" + field + ":";
+        if (colors.numeric()) {
+            if (colored.stream().anyMatch(node -> !colors.missing(node))) {
+                if (colors.min() == colors.max()) {
+                    keys.add(new Key(prefix + "same", field + " " + weight(colors.min()),
+                        DiagramRenderer.blend(NodeColors.LOW, NodeColors.HIGH, .5), 0, false, false));
+                } else {
+                    keys.add(new Key(prefix + "min", field + " " + weight(colors.min()), NodeColors.LOW, 0, false, false));
+                    keys.add(new Key(prefix + "max", field + " " + weight(colors.max()), NodeColors.HIGH, 0, false, false));
+                }
+            }
+        } else {
+            var groups = new java.util.TreeSet<String>();
+            for (Scene.Vertex node : colored) if (!colors.missing(node)) groups.add(Scene.fieldValue(node, field));
+            if (groups.size() > 6) {
+                keys.add(new Key(prefix + "summary", field + " · " + groups.size() + " 类", CONTEXT_INK, 0, false, false));
+            } else for (String group : groups) {
+                keys.add(new Key(prefix + "category:" + group, field + " · " + group, colors.categories().get(group), 0, false, false));
+            }
+        }
+        if (colored.stream().anyMatch(colors::missing)) {
+            keys.add(new Key(prefix + "missing", field + " · 无可用值", NodeColors.MISSING, 0, false, false));
+        }
+    }
+
     private void addCommunityKeys() {
         Map<String, Integer> groups = new LinkedHashMap<>();
         for (var node : visible) {
@@ -329,10 +366,10 @@ final class PaperSvg {
         if (groups.isEmpty()) return;
         boolean sharedColors = Set.copyOf(groups.values()).size() < groups.size();
         if (groups.size() > 6 || sharedColors) {
-            keys.add(new Key(groups.size() + " 个社区" + (sharedColors ? " · 部分共用颜色" : ""), CONTEXT_INK, 0, false, false));
+            keys.add(new Key("communities", groups.size() + " 个社区" + (sharedColors ? " · 部分共用颜色" : ""), CONTEXT_INK, 0, false, false));
         } else {
             groups.keySet().stream().sorted().forEach(group ->
-                keys.add(new Key("社区 " + group, groups.get(group), 0, false, false)));
+                keys.add(new Key("community:" + group, "社区 " + group, groups.get(group), 0, false, false)));
         }
     }
 
@@ -341,13 +378,14 @@ final class PaperSvg {
         float x = 0;
         int row = 0;
         for (Key key : keys) {
-            String value = shorten(key.text, width - sample - padding);
+            if (scene.hiddenLegendItems.contains(key.id)) continue;
+            String value = shorten(scene.legendLabels.getOrDefault(key.id, key.text), width - sample - padding);
             float used = sample + padding / 2 + measure(value);
             if (x > 0 && x + used > width) {
                 row++;
                 x = 0;
             }
-            placed.add(new PlacedKey(new Key(value, key.color, key.size, key.line, key.arrow), x + padding, row));
+            placed.add(new PlacedKey(new Key(key.id, value, key.color, key.size, key.line, key.arrow), x + padding, row));
             x += used + 2 * padding;
         }
         return placed;
@@ -355,14 +393,19 @@ final class PaperSvg {
 
     private void write(XMLStreamWriter writer, double widthMm) throws XMLStreamException {
         var svg = new Svg(writer);
-        float header = padding + fontSize * 1.9f;
+        float titleHeight = padding + fontSize * 1.9f;
         float pageWidth = width + 2 * padding;
         float step = fontSize * 1.52f;
-        float legendTop = header + height + padding * .8f;
         float sample = fontSize * 1.9f;
         var keyLayout = layoutKeys(sample);
         int rows = keyLayout.isEmpty() ? 0 : keyLayout.get(keyLayout.size() - 1).row + 1;
-        float pageHeight = legendTop + step * (rows + notes.size()) + padding * .68f;
+        float keyHeight = rows == 0 ? 0 : step * rows + padding * .45f;
+        boolean topLegend = scene.legendPosition.equals("top");
+        float header = titleHeight + (topLegend ? keyHeight : 0);
+        float footer = header + height + padding * .8f;
+        float legendTop = topLegend ? titleHeight : footer;
+        float notesTop = footer + (topLegend ? 0 : keyHeight);
+        float pageHeight = notesTop + step * notes.size() + padding * .68f;
         writer.writeStartDocument("UTF-8", "1.0");
         svg.start("svg", "width", n(widthMm) + "mm", "height", n(widthMm * pageHeight / pageWidth) + "mm",
             "viewBox", "0 0 " + n(pageWidth) + " " + n(pageHeight), "font-family", "Microsoft YaHei, sans-serif",
@@ -401,7 +444,13 @@ final class PaperSvg {
         }
         svg.end();
         svg.end();
-        writeLegend(svg, legendTop, step, rows, sample, keyLayout);
+        writeLegend(svg, legendTop, step, sample, keyLayout);
+        svg.start("g", "id", "notes");
+        for (int i = 0; i < notes.size(); i++) {
+            svg.label(shorten(notes.get(i), width / .9f), padding, notesTop + i * step + fontSize,
+                fontSize * .9f, "#465c69");
+        }
+        svg.end();
         svg.end();
         writer.writeEndDocument();
         writer.flush();
@@ -443,7 +492,7 @@ final class PaperSvg {
         for (var node : ordered) {
             boolean priority = priorityIds.contains(node.vertex().id);
             boolean related = relatedIds.contains(node.vertex().id);
-            int color = priority ? DiagramRenderer.ACCENT : related ? FOCUS_INK
+            int color = priority ? DiagramRenderer.ACCENT : scene.colors().active() ? node.rgb() : related ? FOCUS_INK
                 : focusActive ? CONTEXT_INK : node.rgb();
             float radius = priority ? Math.max(node.radius(), 4.6f * projection.unit())
                 : focusActive && !related ? node.radius() * .73f : node.radius();
@@ -504,10 +553,8 @@ final class PaperSvg {
         return xy((point.x / point.w + 1) * width / 2, (1 - point.y / point.w) * height / 2);
     }
 
-    private void writeLegend(Svg svg, float top, float step, int rows, float sample, List<PlacedKey> placed) throws XMLStreamException {
-        svg.start("g", "id", "legend");
-        svg.empty("line", "x1", n(padding), "x2", n(padding + width), "y1", n(top - padding / 3),
-            "y2", n(top - padding / 3), "stroke", "#dbe2e6", "stroke-width", n(fontSize * .07));
+    private void writeLegend(Svg svg, float top, float step, float sample, List<PlacedKey> placed) throws XMLStreamException {
+        svg.start("g", "id", "legend", "data-position", scene.legendPosition);
         for (PlacedKey item : placed) {
             Key key = item.key;
             float x = item.x;
@@ -520,11 +567,7 @@ final class PaperSvg {
                     + xy(x + sample - fontSize * .5f, middle - fontSize * .23f) + " "
                     + xy(x + sample - fontSize * .5f, middle + fontSize * .23f));
             } else svg.empty("circle", "cx", n(x + sample / 2), "cy", n(middle), "r", n(fontSize * .29f), "fill", rgb(key.color));
-            svg.label(key.text, x + sample + padding / 2, y, fontSize, "#172033");
-        }
-        for (int i = 0; i < notes.size(); i++) {
-            svg.label(shorten(notes.get(i), width / .9f), padding, top + (rows + i) * step + fontSize,
-                fontSize * .9f, "#465c69");
+            svg.label(key.text, x + sample + padding / 2, y, fontSize, "#172033", "data-legend-item", key.id);
         }
         svg.end();
     }
