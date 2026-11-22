@@ -10,7 +10,7 @@ record PaperOptions(double nodeScale, double edgeScale, double arrowScale, Boole
                     boolean automaticCaption, String caption, String weightMeaning,
                     int leftYear, int rightYear) {
 
-    static final PaperOptions DEFAULT = new PaperOptions(1, 1, 1, null, 6.8, -1, Map.of(), true, "", "", 0, 0);
+    static final PaperOptions DEFAULT = new PaperOptions(1, 1, 1, null, 6.8, -1, Map.of(), false, "", "", 0, 0);
 
     PaperOptions {
         range(nodeScale, .25, 4, "节点倍率");
@@ -43,7 +43,7 @@ record PaperOptions(double nodeScale, double edgeScale, double arrowScale, Boole
         return new PaperOptions(Engine.num(source, "node_scale", 1), Engine.num(source, "edge_scale", 1),
             Engine.num(source, "arrow_scale", 1), source.has("arrows") ? Engine.bool(source, "arrows", false) : null,
             Engine.num(source, "font_points", 6.8), Engine.num(source, "context_opacity", -1), marks,
-            Engine.bool(source, "automatic_caption", true), Engine.str(source, "caption", "").strip(),
+            Engine.bool(source, "automatic_caption", DEFAULT.automaticCaption()), Engine.str(source, "caption", "").strip(),
             Engine.str(source, "weight_meaning", "").strip(),
             year(source, "left_year"), year(source, "right_year"));
     }

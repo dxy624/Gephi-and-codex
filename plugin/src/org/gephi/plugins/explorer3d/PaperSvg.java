@@ -593,8 +593,7 @@ final class PaperSvg {
         var svg = new Svg(writer);
         int contentWidth = second == null ? width : width * 2 + gap;
         var legend = combinedLegend(second);
-        float noteIndent = fontSize * 1.75f;
-        var caption = caption(second, Math.round(contentWidth - noteIndent));
+        var caption = caption(second, contentWidth);
         float titleHeight = padding + fontSize * 1.9f;
         float pageWidth = contentWidth + 2 * padding;
         float step = fontSize * 1.48f;
@@ -643,13 +642,13 @@ final class PaperSvg {
         if (keyLayout.rows > 0) drawFooterRule(svg, "legend-rule", legendTop, contentWidth);
         else if (!caption.isEmpty()) drawFooterRule(svg, "caption-rule", footer, contentWidth);
         writeLegend(svg, legendTop, step, sample, keyLayout);
-        svg.start("g", "id", "notes");
-        float noteBaseline = notesTop + fontSize * 1.1f;
-        if (!caption.isEmpty())
-            svg.label("注", padding, noteBaseline, fontSize * CAPTION_TEXT, "#334155", "font-weight", "bold");
-        for (int i = 0; i < caption.size(); i++)
-            svg.label(caption.get(i), padding + noteIndent, noteBaseline + i * noteStep, fontSize * CAPTION_TEXT, "#49596a");
-        svg.end();
+        if (!caption.isEmpty()) {
+            svg.start("g", "id", "notes");
+            float noteBaseline = notesTop + fontSize * 1.1f;
+            for (int i = 0; i < caption.size(); i++)
+                svg.label(caption.get(i), padding, noteBaseline + i * noteStep, fontSize * CAPTION_TEXT, "#49596a");
+            svg.end();
+        }
         svg.end();
         writer.writeEndDocument();
         writer.flush();

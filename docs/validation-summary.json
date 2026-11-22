@@ -1,7 +1,7 @@
 {
-  "release": "v0.1.10-alpha",
+  "release": "v0.1.11-alpha",
   "platform": "Windows / Gephi 0.11.4 / Java 17 / Python 3.12",
-  "bundled_module": "0.1.10",
+  "bundled_module": "0.1.11",
   "desktop_default_port": 8183,
   "live_test_port": 8184,
   "scope": [

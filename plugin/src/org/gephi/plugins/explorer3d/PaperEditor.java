@@ -32,7 +32,7 @@ final class PaperEditor extends JDialog {
     private final JSpinner nodeScale = multiplier(), edgeScale = multiplier(), arrowScale = multiplier();
     private final JSpinner fontSize = new JSpinner(new SpinnerNumberModel(6.8, 4.0, 18.0, .5));
     private final JCheckBox arrows = new JCheckBox("显示有向边箭头");
-    private final JCheckBox autoCaption = new JCheckBox("附上年份、范围和地图说明", true);
+    private final JCheckBox autoCaption = new JCheckBox("附上年份、范围和地图说明", PaperOptions.DEFAULT.automaticCaption());
     private final JCheckBox dim = new JCheckBox("指定背景线不透明度");
     private final JSpinner context = new JSpinner(new SpinnerNumberModel(12, 0, 100, 1));
     private final JLabel image = new JLabel("", SwingConstants.CENTER);

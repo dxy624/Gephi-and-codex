@@ -11,7 +11,7 @@
   "bridge/server.py",
   "bridge/supply_chain_map.py",
   "dist/SHA256SUMS",
-  "dist/gephi-3d-explorer-0.1.10.nbm",
+  "dist/gephi-3d-explorer-0.1.11.nbm",
   "docs/DEVELOPMENT.md",
   "docs/QUICKSTART.en.md",
   "docs/VALIDATION.md",
