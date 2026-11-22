@@ -45,6 +45,7 @@ description: 通过 Gephi 3D Explorer 从 Excel、CSV、Stata 或 GEXF 绘制三
 - 导出前等待布局完成并保存视角。PNG 默认 6000×4000，可附含栅格图和中文说明的 PDF；需要新的绝对文件名，不能覆盖现有文件，PNG 同时写出 `.scene.json`。
 - save_project 保存完整 `.gephi` 工程及各工作区场景；save_scene 输出独立 JSON，当前无 JSON 导回接口。检查返回路径和文件结果。
 - 论文图用 `gephi3d_export_paper` 或自动绘图的 `svg_path`。Gephi 面板的「导出论文图（SVG）」会先打开整页预览。0.1.9+ 可用 `gephi3d_preview_paper` 生成与 SVG 同排版的预览 PNG。选用 `options.marks` 标注重点节点，`options.caption` 添加自定义图注，`options.weight_meaning` 指明边权含义；同时传 `options.left_year` 和 `options.right_year` 即可导出共用视角、坐标、配色和线宽标尺的并排组图。旧工程没有年度关系数据时，重新导入原始关系表。
+- 0.1.12+ 在论文图预览的「论文样式」可选「沿用当前」「论文浅色」「黑白打印」，并设置字体、毫米页边距和两种强调色。通过接口时检查 `paper_appearance`，将 `preset`、`font`、`margin_mm`、`key_node_color` 和 `focus_edge_color` 放在 `options.appearance`。黑白打印采用灰度，叠加年度对比的基准年独有边用虚线。
 
 ## 连接恢复
 

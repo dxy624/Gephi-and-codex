@@ -278,13 +278,13 @@ def gephi3d_export_paper(workspace_id: int, path: str, width_mm: float = 183,
                          title: str = '', direction: str = '',
                          width: int = 1200, height: int = 800,
                          options: dict | None = None) -> dict:
-    """Export editable paper SVG to a new absolute path. Give both left_year and right_year in options for two panels with common coordinates, camera and scales. Other options include marks (node ID to label, blank to use original), caption, automatic_caption, weight_meaning, font_points, node_scale, edge_scale, arrow_scale, arrows and context_opacity (0–1). Pause the layout first. Extended options need plugin 0.1.9+."""
+    """Export editable paper SVG. Give left_year and right_year in options for comparable panels. Options also include marks (node ID to label), caption, automatic_caption, weight_meaning, font_points, node_scale, edge_scale, arrow_scale, arrows and context_opacity (0–1). From 0.1.12, options.appearance accepts preset (current, journal, grayscale), font (yahei, simsun, arial, times), margin_mm (2–16), key_node_color and focus_edge_color (#RRGGBB in color mode). Use a new absolute path and pause layout."""
     capabilities = client.state().get('capabilities', [])
     if 'paper_svg' not in capabilities:
         raise ToolError('The connected Gephi plugin does not support editable paper export. Install Gephi 3D Explorer 0.1.5 or later.')
     if options is not None and 'paper_editor' not in capabilities:
         raise ToolError('Paper figure options require Gephi 3D Explorer 0.1.9 or later.')
-    extended = {} if options is None else {'options': options}
+    extended = _paper_options(options, capabilities)
     return client.command('export_svg', workspace_id, path=path, width_mm=width_mm,
                           title=title, direction=direction, width=width, height=height, **extended)
 
@@ -295,12 +295,21 @@ def gephi3d_preview_paper(workspace_id: int, path: str, width_mm: float = 183,
                           height: int = 800, preview_width: int = 1000,
                           options: dict | None = None) -> dict:
     """Preview the whole paper layout, including legend and caption, as PNG. Supports the same options as gephi3d_export_paper. Use a new absolute PNG path. Requires Gephi 3D Explorer 0.1.9+."""
-    if 'paper_editor' not in client.state().get('capabilities', []):
+    capabilities = client.state().get('capabilities', [])
+    if 'paper_editor' not in capabilities:
         raise ToolError('Paper figure preview requires Gephi 3D Explorer 0.1.9 or later.')
-    extended = {} if options is None else {'options': options}
+    extended = _paper_options(options, capabilities)
     return client.command('preview_paper', workspace_id, path=path, width_mm=width_mm,
                           title=title, direction=direction, width=width, height=height,
                           preview_width=preview_width, **extended)
+
+
+def _paper_options(options: dict | None, capabilities: list[str]) -> dict:
+    if options is None:
+        return {}
+    if options.get('appearance') is not None and 'paper_appearance' not in capabilities:
+        raise ToolError('Paper appearance options require Gephi 3D Explorer 0.1.12 or later.')
+    return {'options': options}
 
 
 @gephi_tool()

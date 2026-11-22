@@ -35,6 +35,8 @@ Use **查看上下游** for directed supplier or customer neighborhoods, **出�
 
 Use the full-page preview to set paper width and style. Select two available years for a side-by-side comparison with shared scales.
 
+The paper preview offers color and grayscale styles, font selection, margins in millimeters, and custom emphasis colors. Grayscale year overlays show reference-only links with dashed strokes.
+
 For an editable vector figure, Ctrl-click nodes and choose **导出论文图（SVG）** in the 3D panel, or call `gephi3d_export_paper`. The export emphasizes the selection and its direct links, simplifies the legend, and reports links missing locations in map view.
 
 Gephi-AI can only cooperate when connected to the same Gephi instance; equal workspace IDs across processes do not identify the same graph. See [limitations and Chinese instructions](../README.md) and [development guide](DEVELOPMENT.md).

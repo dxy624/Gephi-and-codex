@@ -42,6 +42,7 @@ final class PaperEditor extends JDialog {
     private final JButton annotate = new JButton("重点标注…");
     private final Timer timer = new Timer(250, event -> buildPreview());
     private Map<String, String> marks = Map.of();
+    private PaperAppearance appearance = PaperAppearance.DEFAULT;
     private PaperSvg.Document document;
     private int generation;
     private boolean rendering, saving;
@@ -86,6 +87,16 @@ final class PaperEditor extends JDialog {
         sizes.add(action("85", () -> width.setValue(85.0)));
         sizes.add(action("183", () -> width.setValue(183.0)));
         row(form, "成图宽度（mm）", sizes);
+        var paperStyle = new JButton("沿用当前…");
+        paperStyle.addActionListener(event -> {
+            var edited = PaperStyleDialog.edit(this, appearance);
+            if (edited != null && !edited.equals(appearance)) {
+                appearance = edited;
+                paperStyle.setText(PaperAppearance.PRESETS.get(edited.preset()) + "…");
+                change();
+            }
+        });
+        row(form, "论文样式", paperStyle);
         row(form, "标题", title);
         row(form, "箭头含义", direction);
         row(form, "节点大小（×）", nodeScale);
@@ -212,7 +223,7 @@ final class PaperEditor extends JDialog {
             options = new PaperOptions(number(nodeScale), number(edgeScale), number(arrowScale), arrows.isSelected(),
                 number(fontSize), dim.isSelected() ? number(context) / 100 : -1, marks,
                 autoCaption.isSelected(), caption.getText().strip(), weightMeaning.getText().strip(),
-                paired ? (int) leftYear.getSelectedItem() : 0, paired ? (int) rightYear.getSelectedItem() : 0);
+                paired ? (int) leftYear.getSelectedItem() : 0, paired ? (int) rightYear.getSelectedItem() : 0, appearance);
         } catch (IllegalArgumentException ex) {
             info.setText(ex.getMessage());
             image.setIcon(null);

@@ -1,7 +1,7 @@
 {
-  "release": "v0.1.11-alpha",
+  "release": "v0.1.12-alpha",
   "platform": "Windows / Gephi 0.11.4 / Java 17 / Python 3.12",
-  "bundled_module": "0.1.11",
+  "bundled_module": "0.1.12",
   "desktop_default_port": 8183,
   "live_test_port": 8184,
   "scope": [
@@ -19,6 +19,7 @@
     "editable SVG, compact legend, selected nodes, incident links and missing map locations",
     "filter dialog, neighborhood scope, layer visibility, field colors and SVG legend settings",
     "directed supply scope, filter diagnostics, figure presets, edge-year comparisons and SVG view metadata",
-    "paper preview, editable legend, manual labels and shared scales in a two-year figure"
+    "paper preview, editable legend, manual labels and shared scales in a two-year figure",
+    "paper appearance, measured margins, grayscale PNG and SVG, matching dashed year legend"
   ]
 }

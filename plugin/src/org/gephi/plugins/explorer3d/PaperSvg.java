@@ -2,11 +2,14 @@ package org.gephi.plugins.explorer3d;
 
 import java.awt.Font;
 import java.awt.font.FontRenderContext;
+import java.awt.font.TextAttribute;
+import java.awt.font.TextLayout;
 import java.awt.geom.Rectangle2D;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.text.AttributedString;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -26,11 +29,11 @@ import org.joml.Vector4f;
 final class PaperSvg {
     private static final String SVG_NS = "http://www.w3.org/2000/svg";
     private static final FontRenderContext FONT_CONTEXT = new FontRenderContext(null, true, true);
-    private static final Font FONT = new Font("Microsoft YaHei", Font.PLAIN, 12);
+    private static final Font YAHEI = new Font("Microsoft YaHei", Font.PLAIN, 12);
+    private static final Font SIMSUN = new Font("SimSun", Font.PLAIN, 12);
+    private static final Font SANS = new Font(Font.SANS_SERIF, Font.PLAIN, 12);
     private static final int LABEL_LIMIT = 60;
     private static final int MAX_CONTEXT_LABELS = 12;
-    private static final int FOCUS_INK = 0xa34121;
-    private static final int CONTEXT_INK = 0x687c8a;
 
     private record Edge(Scene.Link link, DiagramRenderer.EdgeShape shape, DiagramRenderer.EdgeStyle style,
                         boolean focus) { }
@@ -61,6 +64,8 @@ final class PaperSvg {
     private final boolean dark;
     private final String title, direction;
     private final PaperOptions options;
+    private final PaperAppearance appearance;
+    private final int nodeInk, focusInk, contextInk;
     private int unplacedPriority, drawnArrows, focusEdges, drawnFocusEdges, unlocatedFocusEdges;
     private int mapEligible, mapLocated;
 
@@ -95,6 +100,7 @@ final class PaperSvg {
             throw new IllegalArgumentException("View size must be 300–8000 by 200–8000, with a paper width of 60–300 mm");
         }
         Scene scene = snapshot.copy();
+        if (!options.appearance().followsView()) scene.dark = false;
         scene.nodeScale *= options.nodeScale();
         scene.edgeWidth *= options.edgeScale();
         scene.arrowScale *= options.arrowScale();
@@ -106,8 +112,12 @@ final class PaperSvg {
         for (Scene.Vertex node : scene.nodes) known.add(node.id);
         var unknown = options.marks().keySet().stream().filter(id -> !known.contains(id)).toList();
         if (!unknown.isEmpty()) throw new IllegalArgumentException("找不到标注节点 " + String.join("、", unknown));
-        float pointSize = (float) (options.fontPoints() * 25.4 / (widthMm * 72));
-        float paperFont = width * pointSize / Math.max(.5f, 1 - 2.4f * pointSize);
+        double fontMm = options.fontPoints() * 25.4 / 72;
+        Double requestedMargin = options.appearance().marginMm();
+        double marginMm = requestedMargin == null ? 1.2 * fontMm : requestedMargin;
+        double unitsPerMm = width / (widthMm - 2 * marginMm);
+        float paperFont = (float) (unitsPerMm * fontMm);
+        float paperPadding = (float) (unitsPerMm * marginMm);
         int gap = options.paired() ? Math.round(paperFont * 1.8f) : 0;
         int plotWidth = options.paired() ? (width - gap) / 2 : width;
         int plotHeight = options.paired() ? Math.min(height, (int) (width * .45)) : height;
@@ -132,9 +142,14 @@ final class PaperSvg {
                 GraphRenderer.frame(scene, positions, plotWidth, plotHeight);
             rightScene.restoreCamera(scene.cameraValues());
         }
-        var first = new PaperSvg(scene, plotWidth, plotHeight, paperFont, title, direction, true, options);
+        if (options.paired()) {
+            double panelUnits = (plotWidth * 2 + gap) / (widthMm - 2 * marginMm);
+            paperFont = (float) (panelUnits * fontMm);
+            paperPadding = (float) (panelUnits * marginMm);
+        }
+        var first = new PaperSvg(scene, plotWidth, plotHeight, paperFont, paperPadding, title, direction, true, options);
         var second = rightScene == null ? null
-            : new PaperSvg(rightScene, plotWidth, plotHeight, paperFont, title, direction, true, options);
+            : new PaperSvg(rightScene, plotWidth, plotHeight, paperFont, paperPadding, title, direction, true, options);
         var buffer = new StringWriter();
         try {
             return first.write(XMLOutputFactory.newFactory().createXMLStreamWriter(buffer), buffer, widthMm, second, gap);
@@ -143,16 +158,20 @@ final class PaperSvg {
         }
     }
 
-    private PaperSvg(Scene scene, int width, int height, float paperFont, String title, String direction,
+    private PaperSvg(Scene scene, int width, int height, float paperFont, float paperPadding, String title, String direction,
                      boolean includeLabels, PaperOptions options) {
         this.scene = scene;
         this.width = width;
         this.height = height;
         this.options = options;
+        appearance = options.appearance();
         fontSize = paperFont;
-        font = FONT.deriveFont(fontSize);
-        padding = fontSize * 1.2f;
-        dark = scene.dark && !scene.geographyEnabled;
+        font = new Font(appearance.family(), Font.PLAIN, 12).deriveFont(fontSize);
+        padding = paperPadding;
+        dark = appearance.followsView() && scene.dark && !scene.geographyEnabled;
+        nodeInk = appearance.nodeInk();
+        focusInk = appearance.focusInk();
+        contextInk = appearance.contextInk();
         this.direction = direction.isBlank() ? defaultDirection(scene) : direction;
         this.title = title.isBlank()
             ? (scene.geographyEnabled ? "企业地理关系图" : "网络关系图") : title;
@@ -231,7 +250,8 @@ final class PaperSvg {
 
     static List<Key> legendItems(Scene snapshot, int width, int height, double widthMm, String direction) {
         float size = (float) (width * 6.8 * 25.4 / (widthMm * 72));
-        return List.copyOf(new PaperSvg(snapshot, width, height, size, "", direction, false, PaperOptions.DEFAULT).keys);
+        return List.copyOf(new PaperSvg(snapshot, width, height, size, size * 1.2f, "", direction, false,
+            PaperOptions.DEFAULT).keys);
     }
 
     private void prepareEdges() {
@@ -253,9 +273,9 @@ final class PaperSvg {
             if (focusActive) {
                 float unit = projection.unit();
                 style = focus
-                    ? new DiagramRenderer.EdgeStyle(FOCUS_INK, .89f, Math.max(1.4f * unit, style.width() * 1.22f),
+                    ? new DiagramRenderer.EdgeStyle(focusInk, .89f, Math.max(1.4f * unit, style.width() * 1.22f),
                         style.curved(), style.arrowLength() * 1.14f)
-                    : new DiagramRenderer.EdgeStyle(CONTEXT_INK, Math.min(contextAlpha, style.alpha()),
+                    : new DiagramRenderer.EdgeStyle(contextInk, Math.min(contextAlpha, style.alpha()),
                         style.width() * .64f, style.curved(),
                         style.arrowLength() * .66f);
             }
@@ -329,8 +349,9 @@ final class PaperSvg {
                                DiagramRenderer.Node owner, boolean priority) {
         float size = fontSize * (priority ? 1.28f : .96f);
         Font labelFont = font.deriveFont(priority ? Font.BOLD : Font.PLAIN, size);
-        float textWidth = (float) labelFont.getStringBounds(value, FONT_CONTEXT).getWidth();
-        var metrics = labelFont.getLineMetrics(value, FONT_CONTEXT);
+        if (value.isEmpty()) return false;
+        var metrics = textLayout(value, labelFont);
+        float textWidth = metrics.getAdvance();
         float labelHeight = metrics.getAscent() + metrics.getDescent();
         boolean focusLabel = priority || owner != null && relatedIds.contains(owner.vertex().id);
         List<DiagramRenderer.Node> obstacles = focusLabel ? focusObstacles : visible;
@@ -361,10 +382,13 @@ final class PaperSvg {
         if (leaders || selected) {
             String selectedLabel = scene.directedScope() ? "中心节点" : "已选节点";
             String description = leaders && selected ? "链主 / " + selectedLabel : leaders ? "链主" : selectedLabel;
-            keys.add(new Key("selection", description, DiagramRenderer.ACCENT, 0, false, false));
+            keys.add(new Key("selection", description, nodeInk, 0, false, false));
         }
-        if (edges.stream().anyMatch(edge -> edge.focus && EdgeYears.changeColor(scene, edge.link, FOCUS_INK) == FOCUS_INK)) {
-            keys.add(new Key("focus", "重点关系", FOCUS_INK, fontSize * .2f, true, false));
+        if (edges.stream().anyMatch(edge -> edge.focus && switch (EdgeYears.change(scene, edge.link)) {
+            case "added", "removed" -> false;
+            default -> true;
+        })) {
+            keys.add(new Key("focus", "重点关系", focusInk, fontSize * .2f, true, false));
         }
         if (scene.referenceYear != 0) {
             if (edges.stream().anyMatch(e -> EdgeYears.change(scene, e.link).equals("added")))
@@ -379,14 +403,14 @@ final class PaperSvg {
         } else if (!focusActive && !projection.classic()) {
             addCommunityKeys();
         }
-        if (drawnArrows > 0) keys.add(new Key("direction", direction, CONTEXT_INK, fontSize * .1f, true, true));
+        if (drawnArrows > 0) keys.add(new Key("direction", direction, contextInk, fontSize * .1f, true, true));
         if (!projection.classic() && !edges.isEmpty()) {
             List<Edge> samples = drawnFocusEdges > 0 ? edges.stream().filter(Edge::focus).toList() : edges;
             var byWeight = Comparator.comparingDouble((Edge e) -> EdgeYears.weight(scene, e.link));
             Edge low = samples.stream().min(byWeight).orElseThrow();
             Edge high = samples.stream().max(byWeight).orElseThrow();
             if (byWeight.compare(low, high) != 0) {
-                int ink = drawnFocusEdges > 0 ? FOCUS_INK : CONTEXT_INK;
+                int ink = drawnFocusEdges > 0 ? focusInk : contextInk;
                 keys.add(new Key("weight_low", "边权 " + weight(EdgeYears.weight(scene, low.link)), ink, low.style.width(), true, false));
                 keys.add(new Key("weight_high", "边权 " + weight(EdgeYears.weight(scene, high.link)), ink, high.style.width(), true, false));
             }
@@ -412,7 +436,7 @@ final class PaperSvg {
             var groups = new java.util.TreeSet<String>();
             for (Scene.Vertex node : colored) if (!colors.missing(node)) groups.add(Scene.fieldValue(node, field));
             if (groups.size() > 6) {
-                keys.add(new Key(prefix + "summary", field + " · " + groups.size() + " 类", CONTEXT_INK, 0, false, false));
+                keys.add(new Key(prefix + "summary", field + " · " + groups.size() + " 类", contextInk, 0, false, false));
             } else for (String group : groups) {
                 keys.add(new Key(prefix + "category:" + group, field + " · " + group, colors.categories().get(group), 0, false, false));
             }
@@ -431,7 +455,7 @@ final class PaperSvg {
         if (groups.isEmpty()) return;
         boolean sharedColors = Set.copyOf(groups.values()).size() < groups.size();
         if (groups.size() > 6 || sharedColors) {
-            keys.add(new Key("communities", groups.size() + " 个社区" + (sharedColors ? " · 部分共用颜色" : ""), CONTEXT_INK, 0, false, false));
+            keys.add(new Key("communities", groups.size() + " 个社区" + (sharedColors ? " · 部分共用颜色" : ""), contextInk, 0, false, false));
         } else {
             groups.keySet().stream().sorted().forEach(group ->
                 keys.add(new Key("community:" + group, "社区 " + group, groups.get(group), 0, false, false)));
@@ -500,7 +524,7 @@ final class PaperSvg {
             summary.ifPresent(key -> combined.remove(key.id));
             String field = scene.colors().active() ? scene.colors().field() : "社区";
             String id = summary.map(Key::id).orElse(scene.colors().active() ? "field:" + field + ":summary" : "communities");
-            combined.put(id, new Key(id, "颜色按" + field + "区分", CONTEXT_INK, 0, false, false));
+            combined.put(id, new Key(id, "颜色按" + field + "区分", contextInk, 0, false, false));
         }
         if (!projection.classic()) {
             for (boolean focus : new boolean[]{true, false}) {
@@ -592,7 +616,8 @@ final class PaperSvg {
             throws XMLStreamException {
         var svg = new Svg(writer);
         int contentWidth = second == null ? width : width * 2 + gap;
-        var legend = combinedLegend(second);
+        var legend = combinedLegend(second).stream().map(key -> new Key(key.id, key.text,
+            appearance.display(key.color), key.size, key.line, key.arrow)).toList();
         var caption = caption(second, contentWidth);
         float titleHeight = padding + fontSize * 1.9f;
         float pageWidth = contentWidth + 2 * padding;
@@ -604,14 +629,17 @@ final class PaperSvg {
         boolean topLegend = scene.legendPosition.equals("top");
         float panelTitle = second == null ? 0 : fontSize * 1.55f;
         float header = titleHeight + (topLegend ? keyHeight : 0) + panelTitle;
-        float footer = header + height + padding * .8f;
+        boolean customMargin = appearance.marginMm() != null;
+        boolean footerContent = !caption.isEmpty() || (!topLegend && keyLayout.rows > 0);
+        float footerGap = customMargin ? (footerContent ? fontSize * .96f : 0) : padding * .8f;
+        float footer = header + height + footerGap;
         float legendTop = topLegend ? titleHeight : footer;
         float notesTop = footer + (topLegend ? 0 : keyHeight);
-        float pageHeight = notesTop + noteStep * caption.size() + padding * .6f;
+        float pageHeight = notesTop + noteStep * caption.size() + (customMargin ? padding : padding * .6f);
         double heightMm = widthMm * pageHeight / pageWidth;
         writer.writeStartDocument("UTF-8", "1.0");
         svg.start("svg", "width", n(widthMm) + "mm", "height", n(heightMm) + "mm",
-            "viewBox", "0 0 " + n(pageWidth) + " " + n(pageHeight), "font-family", "Microsoft YaHei, sans-serif",
+            "viewBox", "0 0 " + n(pageWidth) + " " + n(pageHeight), "font-family", appearance.cssFonts(),
             "font-size", n(fontSize));
         writer.writeDefaultNamespace(SVG_NS);
         svg.start("title"); svg.text(title); svg.end();
@@ -623,6 +651,7 @@ final class PaperSvg {
             if (state.containsKey(key)) settings.put(key, state.get(key));
         }
         settings.put("paper_options", options);
+        settings.put("paper_appearance", appearance.metadata());
         settings.put("paper_diagnostics", second == null ? List.of(paperDiagnostics())
             : List.of(paperDiagnostics(), second.paperDiagnostics()));
         if (second != null) settings.put("panels", List.of(panelMetrics(), second.panelMetrics()));
@@ -632,8 +661,9 @@ final class PaperSvg {
         svg.empty("rect", "width", width, "height", height);
         svg.end();
         svg.end();
-        svg.empty("rect", "id", "page-background", "width", n(pageWidth), "height", n(pageHeight), "fill", "#ffffff");
-        svg.label(shorten(title, contentWidth / 1.52f), padding, padding + fontSize * 1.3f, fontSize * 1.48f, "#172033", "font-weight", "bold");
+        svg.empty("rect", "id", "page-background", "width", n(pageWidth), "height", n(pageHeight), "fill", rgb(0xffffff));
+        svg.label(shorten(title, contentWidth / 1.52f), padding, padding + fontSize * 1.3f, fontSize * 1.48f,
+            rgb(0x172033), "font-weight", "bold");
         if (second == null) writeNetwork(svg, padding, header, "");
         else {
             writePanel(svg, "a", padding, header);
@@ -646,7 +676,7 @@ final class PaperSvg {
             svg.start("g", "id", "notes");
             float noteBaseline = notesTop + fontSize * 1.1f;
             for (int i = 0; i < caption.size(); i++)
-                svg.label(caption.get(i), padding, noteBaseline + i * noteStep, fontSize * CAPTION_TEXT, "#49596a");
+                svg.label(caption.get(i), padding, noteBaseline + i * noteStep, fontSize * CAPTION_TEXT, rgb(0x49596a));
             svg.end();
         }
         svg.end();
@@ -682,7 +712,7 @@ final class PaperSvg {
     private void writePanel(Svg svg, String letter, float x, float y) throws XMLStreamException {
         svg.start("g", "id", "panel-" + letter, "data-year", scene.activeYear);
         svg.label("(" + letter + ") " + scene.activeYear + " 年", x, y - fontSize * .39f,
-            fontSize * 1.09f, "#172033", "font-weight", "bold");
+            fontSize * 1.09f, rgb(0x172033), "font-weight", "bold");
         writeNetwork(svg, x, y, letter + "-");
         svg.end();
     }
@@ -690,11 +720,12 @@ final class PaperSvg {
     private void writeNetwork(Svg svg, float x, float y, String prefix) throws XMLStreamException {
         svg.start("g", "id", prefix + "network", "transform", "translate(" + n(x) + " " + n(y) + ")",
             "clip-path", "url(#plot-clip)");
-        svg.empty("rect", "id", prefix + "network-background", "width", width, "height", height, "fill", dark ? "#090e17" : "#ffffff");
+        String background = rgb(dark ? 0x090e17 : 0xffffff);
+        svg.empty("rect", "id", prefix + "network-background", "width", width, "height", height, "fill", background);
         if (scene.geographyEnabled) writeMap(svg, prefix);
         writeEdges(svg, prefix);
         writeNodes(svg, prefix);
-        svg.start("g", "id", prefix + "label-connectors", "stroke", dark ? "#ffc090" : "#a34121", "stroke-width", "1");
+        svg.start("g", "id", prefix + "label-connectors", "stroke", markerInk(), "stroke-width", "1");
         for (Label label : labels) {
             if (!label.connector) continue;
             double endX = Math.max(label.box.getMinX(), Math.min(label.box.getMaxX(), label.anchorX));
@@ -704,10 +735,10 @@ final class PaperSvg {
         svg.end();
         svg.start("g", "id", prefix + "labels");
         for (Label label : labels) {
-            String ink = label.priority ? (dark ? "#ffd2a7" : "#7d2c15") : dark ? "#f4f6fa" : "#344b5b";
+            String ink = label.priority ? priorityTextInk() : rgb(dark ? 0xf4f6fa : 0x344b5b);
             svg.empty("rect", "x", n(label.box.getX()), "y", n(label.box.getY()),
                 "width", n(label.box.getWidth()), "height", n(label.box.getHeight()), "rx", n(fontSize * .14f),
-                "fill", dark ? "#090e17" : "#ffffff", "opacity", label.priority ? ".91" : ".78");
+                "fill", background, "opacity", label.priority ? ".91" : ".78");
             svg.label(label.text, label.x, label.y, label.size, ink, "data-label-for", label.id,
                 "font-weight", label.priority ? "bold" : "normal");
         }
@@ -725,9 +756,12 @@ final class PaperSvg {
                 geometry += " Q " + xy(shape.ax() + t * (shape.cx() - shape.ax()), shape.ay() + t * (shape.cy() - shape.ay()));
             } else geometry += " L";
             geometry += " " + xy(shape.x(t), shape.y(t));
+            String status = EdgeYears.change(scene, edge.link);
+            boolean dashed = appearance.grayscale() && status.equals("removed");
             svg.empty("path", "d", geometry, "stroke", rgb(edge.style.color()), "stroke-width", n(edge.style.width()),
+                "stroke-dasharray", dashPattern(dashed), "stroke-linecap", dashed ? "butt" : "round",
                 "opacity", n(edge.style.alpha()), "data-edge-id", edge.link.id, "data-weight", EdgeYears.weight(scene, edge.link),
-                "data-focus", edge.focus, "data-year-status", EdgeYears.change(scene, edge.link),
+                "data-focus", edge.focus, "data-year-status", status,
                 "data-source", scene.nodes.get(edge.link.source).id, "data-target", scene.nodes.get(edge.link.target).id);
         }
         svg.end();
@@ -752,16 +786,16 @@ final class PaperSvg {
             boolean priority = priorityIds.contains(node.vertex().id);
             boolean related = relatedIds.contains(node.vertex().id);
             boolean marked = !priority && options.marks().containsKey(node.vertex().id);
-            int color = priority ? DiagramRenderer.ACCENT : scene.colors().active() ? node.rgb() : related ? FOCUS_INK
-                : focusActive ? CONTEXT_INK : node.rgb();
+            int color = priority ? nodeInk : scene.colors().active() ? node.rgb() : related ? focusInk
+                : focusActive ? contextInk : node.rgb();
             float radius = priority ? Math.max(node.radius(), 4.6f * projection.unit())
                 : focusActive && !related ? node.radius() * .73f : node.radius();
             float alpha = priority || related || marked ? 1 : focusActive ? Math.min(contextAlpha, node.alpha()) : node.alpha();
             if (marked) svg.empty("circle", "cx", n(node.x()), "cy", n(node.y()), "r", n(radius + 2 * projection.unit()),
-                "stroke", dark ? "#ffc090" : "#a34121", "stroke-width", n(Math.max(1, projection.unit())),
+                "stroke", markerInk(), "stroke-width", n(Math.max(1, projection.unit())),
                 "fill", "none", "data-marked-for", node.vertex().id);
             svg.start("circle", "cx", n(node.x()), "cy", n(node.y()), "r", n(radius),
-                "fill", rgb(color), "opacity", n(alpha), "stroke", priority ? "#7d2c15" : dark ? "#0c1621" : "#475569",
+                "fill", rgb(color), "opacity", n(alpha), "stroke", priority ? priorityOutline() : rgb(dark ? 0x0c1621 : 0x475569),
                 "stroke-width", n(priority ? 1.3f * projection.unit() : Math.min(1.5, radius * .2)),
                 "data-node-id", node.vertex().id,
                 "data-community", node.vertex().community);
@@ -776,11 +810,12 @@ final class PaperSvg {
         for (double[][][] polygon : scene.geography.polygons) {
             StringBuilder outline = new StringBuilder();
             for (double[][] ring : polygon) outline.append(projectPath(ring, true));
-            if (!outline.isEmpty()) svg.empty("path", "d", outline, "fill", "#f1f4f5", "stroke", "#b0bfc5", "fill-rule", "evenodd");
+            if (!outline.isEmpty()) svg.empty("path", "d", outline, "fill", rgb(0xf1f4f5), "stroke", rgb(0xb0bfc5),
+                "fill-rule", "evenodd");
         }
         for (double[][] line : scene.geography.lines) {
             String outline = projectPath(line, false);
-            if (!outline.isBlank()) svg.empty("path", "d", outline, "fill", "none", "stroke", "#b0bfc5");
+            if (!outline.isBlank()) svg.empty("path", "d", outline, "fill", "none", "stroke", rgb(0xb0bfc5));
         }
         svg.end();
     }
@@ -818,7 +853,7 @@ final class PaperSvg {
 
     private void drawFooterRule(Svg svg, String id, float y, int contentWidth) throws XMLStreamException {
         svg.empty("line", "id", id, "x1", n(padding), "x2", n(padding + contentWidth), "y1", n(y), "y2", n(y),
-            "stroke", "#cbd5dc", "stroke-width", n(fontSize * .055f));
+            "stroke", rgb(0xcbd5dc), "stroke-width", n(fontSize * .055f));
     }
 
     private void writeLegend(Svg svg, float top, float step, float sample, LegendLayout layout) throws XMLStreamException {
@@ -830,7 +865,7 @@ final class PaperSvg {
             var scale = layout.scale;
             float y = baseline + scale.row * step;
             svg.start("g", "id", "legend-edge-scale");
-            svg.label(SCALE_TITLE, scale.x, y, fontSize * .91f, "#49596a", "font-weight", "bold");
+            svg.label(SCALE_TITLE, scale.x, y, fontSize * .91f, rgb(0x49596a), "font-weight", "bold");
             float max = scale.keys.stream().map(item -> item.key.size).max(Float::compare).orElse(1f);
             float ratio = max > 0 ? Math.min(1, fontSize * .63f / max) : 1;
             for (PlacedKey item : scale.keys) writeLegendKey(svg, item, y, sample, item.key.size * ratio);
@@ -847,21 +882,68 @@ final class PaperSvg {
         if (key.line) {
             float end = x + sample;
             float tail = key.arrow ? end - fontSize * .36f : end;
+            boolean dashed = appearance.grayscale() && key.id.equals("year_removed");
             svg.empty("line", "x1", n(x), "y1", n(middle), "x2", n(tail), "y2", n(middle), "stroke", ink,
-                "stroke-width", n(Math.max(fontSize * .055f, stroke)), "stroke-linecap", key.arrow ? "butt" : "round");
+                "stroke-width", n(Math.max(fontSize * .055f, stroke)), "stroke-linecap", key.arrow || dashed ? "butt" : "round",
+                "stroke-dasharray", dashPattern(dashed));
             if (key.arrow) svg.empty("polygon", "fill", ink, "points", xy(end, middle) + " "
                 + xy(end - fontSize * .48f, middle - fontSize * .21f) + " "
                 + xy(end - fontSize * .48f, middle + fontSize * .21f));
         } else {
             svg.empty("circle", "cx", n(x + sample * .5f), "cy", n(middle), "r", n(fontSize * .28f), "fill", ink,
-                "stroke", key.id.equals("selection") ? "#7d2c15" : "none", "stroke-width", n(fontSize * .065f));
+                "stroke", key.id.equals("selection") ? priorityOutline() : "none", "stroke-width", n(fontSize * .065f));
         }
-        svg.label(key.text, x + sample + fontSize * .48f, baseline, fontSize * LEGEND_TEXT, "#172033",
+        svg.label(key.text, x + sample + fontSize * .48f, baseline, fontSize * LEGEND_TEXT, rgb(0x172033),
             "data-legend-item", key.id);
     }
 
+    private String dashPattern(boolean dashed) {
+        return dashed ? n(fontSize * .36f) + " " + n(fontSize * .25f) : "none";
+    }
+
+    private String priorityOutline() {
+        if (appearance.followsView() && appearance.keyNodeColor() == null) return rgb(0x7d2c15);
+        return rgb(DiagramRenderer.blend(nodeInk, dark ? 0xffffff : 0x000000, dark ? .56 : .55));
+    }
+
+    private String priorityTextInk() {
+        if (appearance.followsView() && appearance.focusEdgeColor() == null) return rgb(dark ? 0xffd2a7 : 0x7d2c15);
+        return rgb(DiagramRenderer.blend(focusInk, dark ? 0xffffff : 0x000000, dark ? .65 : .62));
+    }
+
+    private String markerInk() {
+        if (appearance.followsView() && appearance.focusEdgeColor() == null) return rgb(dark ? 0xffc090 : 0xa34121);
+        return priorityTextInk();
+    }
+
     private float measure(String value) {
-        return (float) font.getStringBounds(value, FONT_CONTEXT).getWidth();
+        return value.isEmpty() ? 0 : textLayout(value, font).getAdvance();
+    }
+
+    private TextLayout textLayout(String value, Font preferred) {
+        if (preferred.canDisplayUpTo(value) < 0) return new TextLayout(value, preferred, FONT_CONTEXT);
+        var attributed = new AttributedString(value);
+        int start = 0;
+        while (start < value.length()) {
+            int cp = value.codePointAt(start);
+            Font selected = glyphFont(preferred, cp);
+            int end = start + Character.charCount(cp);
+            while (end < value.length()) {
+                cp = value.codePointAt(end);
+                if (!selected.equals(glyphFont(preferred, cp))) break;
+                end += Character.charCount(cp);
+            }
+            attributed.addAttribute(TextAttribute.FONT, selected, start, end);
+            start = end;
+        }
+        return new TextLayout(attributed.getIterator(), FONT_CONTEXT);
+    }
+
+    private Font glyphFont(Font preferred, int cp) {
+        if (preferred.canDisplay(cp)) return preferred;
+        Font fallback = appearance.font().equals("times") && SIMSUN.canDisplay(cp) ? SIMSUN : YAHEI;
+        if (!fallback.canDisplay(cp)) fallback = SANS;
+        return fallback.deriveFont(preferred.getStyle(), preferred.getSize2D());
     }
 
     private String shorten(String value, float available) {
@@ -883,7 +965,7 @@ final class PaperSvg {
     }
     private static String n(double value) { return Double.toString(Math.round(value * 100) / 100.0); }
     private static String xy(double x, double y) { return n(x) + "," + n(y); }
-    private static String rgb(int value) { return "#" + Integer.toHexString(value | 0x1000000).substring(1); }
+    private String rgb(int value) { return PaperAppearance.hex(appearance.display(value)); }
 
     private record Svg(XMLStreamWriter out) {
         void start(String element, Object... attributes) throws XMLStreamException { out.writeStartElement(element); attrs(attributes); }

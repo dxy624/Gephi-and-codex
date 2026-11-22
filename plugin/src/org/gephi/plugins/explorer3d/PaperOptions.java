@@ -8,9 +8,10 @@ import java.util.Map;
 record PaperOptions(double nodeScale, double edgeScale, double arrowScale, Boolean arrows,
                     double fontPoints, double contextOpacity, Map<String, String> marks,
                     boolean automaticCaption, String caption, String weightMeaning,
-                    int leftYear, int rightYear) {
+                    int leftYear, int rightYear, PaperAppearance appearance) {
 
-    static final PaperOptions DEFAULT = new PaperOptions(1, 1, 1, null, 6.8, -1, Map.of(), false, "", "", 0, 0);
+    static final PaperOptions DEFAULT = new PaperOptions(1, 1, 1, null, 6.8, -1, Map.of(), false, "", "", 0, 0,
+        PaperAppearance.DEFAULT);
 
     PaperOptions {
         range(nodeScale, .25, 4, "节点倍率");
@@ -45,7 +46,9 @@ record PaperOptions(double nodeScale, double edgeScale, double arrowScale, Boole
             Engine.num(source, "font_points", 6.8), Engine.num(source, "context_opacity", -1), marks,
             Engine.bool(source, "automatic_caption", DEFAULT.automaticCaption()), Engine.str(source, "caption", "").strip(),
             Engine.str(source, "weight_meaning", "").strip(),
-            year(source, "left_year"), year(source, "right_year"));
+            year(source, "left_year"), year(source, "right_year"),
+            PaperAppearance.read(source.has("appearance") && !source.get("appearance").isJsonNull()
+                ? source.getAsJsonObject("appearance") : null));
     }
 
     private static int year(JsonObject source, String key) {

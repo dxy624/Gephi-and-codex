@@ -1,8 +1,8 @@
 # Gephi 3D Explorer
 
-**v0.1.11-alpha · Windows · Gephi 0.11.3 / 0.11.4**
+**v0.1.12-alpha · Windows · Gephi 0.11.3 / 0.11.4**
 
-[下载 v0.1.11-alpha 完整安装包](https://github.com/dxy624/Gephi-and-codex/releases/download/v0.1.11-alpha/gephi-3d-explorer-v0.1.11-alpha.zip) · [查看发行说明](https://github.com/dxy624/Gephi-and-codex/releases/tag/v0.1.11-alpha)
+[下载 v0.1.12-alpha 完整安装包](https://github.com/dxy624/Gephi-and-codex/releases/download/v0.1.12-alpha/gephi-3d-explorer-v0.1.12-alpha.zip) · [查看发行说明](https://github.com/dxy624/Gephi-and-codex/releases/tag/v0.1.12-alpha)
 
 在 Gephi 内旋转、分层和探索三维网络，也可让 Codex 用中文控制同一个视图。此仓库包含 Gephi 插件、独立 MCP 服务和 `gephi-3d` Skill，三者配合使用。
 
@@ -56,7 +56,7 @@ py -3.12 scripts/setup.py --gephi "D:\Apps\Gephi-0.11.4" --install-skill --confi
 py -3.12 scripts/setup.py --configure-codex --replace-gephi-connection
 ```
 
-识别到上一发行包安装的桌面插件时，安装器会备份旧插件并升级。若安装器提示存在其他来源的模块，请在 Gephi 插件管理器里检查，可通过其中的「已下载」页安装新版 [NBM](dist/gephi-3d-explorer-0.1.11.nbm)。若此前编辑过同名 Skill，保留个人版本即可。安装后重开 Gephi 与 Codex。
+识别到上一发行包安装的桌面插件时，安装器会备份旧插件并升级。若安装器提示存在其他来源的模块，请在 Gephi 插件管理器里检查，可通过其中的「已下载」页安装新版 [NBM](dist/gephi-3d-explorer-0.1.12.nbm)。若此前编辑过同名 Skill，保留个人版本即可。安装后重开 Gephi 与 Codex。
 
 ## 3. 启动
 
@@ -134,6 +134,8 @@ py -3.12 scripts/setup.py --mode isolated --install-skill --configure-codex
 向 Codex 明确指定**可写文件夹的完整路径**。保存 `.gephi` 以保留网络、三维坐标、相机和书签；导出默认 6000×4000 PNG，也可生成嵌入该图和中文说明的 PDF。导出附带场景 JSON。
 
 需要可编辑的论文图时，在三维面板选中企业或节点（按住 `Ctrl` 多选），点击**导出论文图（SVG）**。可按毫米预览整页，调整节点、线宽、箭头和字号，标注重点企业，或导出共用视角与线宽标尺的双年份组图。 图注默认关闭，可按需开启。导出会放大选中节点、优先安排标签、加深直接关系并淡化背景，图例只列出当前画面需要解释的项目。如果已有最短路径高亮，导出优先突出该路径。节点、连线、箭头和文字可分别编辑。Codex 可调用 `gephi3d_export_paper`。
+
+在导出预览左侧的「论文样式」可切换论文浅色或黑白打印，设置字体、页边距和强调色。黑白年度叠加对比用虚线标识基准年独有的边，图例使用相同线型。
 
 地图视图只画两端都能定位的关系，图注会注明重点关系的定位缺失情况。关闭「地理地图」后可按网络结构查看这些关系。SVG 输出为当前三维视图的二维投影，可为重点关系重新取景。
 
