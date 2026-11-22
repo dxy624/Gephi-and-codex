@@ -1,8 +1,8 @@
 # Gephi 3D Explorer
 
-**v0.1.7-alpha · Windows · Gephi 0.11.3 / 0.11.4**
+**v0.1.8-alpha · Windows · Gephi 0.11.3 / 0.11.4**
 
-[下载 v0.1.7-alpha 完整安装包](https://github.com/dxy624/Gephi-and-codex/releases/download/v0.1.7-alpha/gephi-3d-explorer-v0.1.7-alpha.zip) · [查看发行说明](https://github.com/dxy624/Gephi-and-codex/releases/tag/v0.1.7-alpha)
+[下载 v0.1.8-alpha 完整安装包](https://github.com/dxy624/Gephi-and-codex/releases/download/v0.1.8-alpha/gephi-3d-explorer-v0.1.8-alpha.zip) · [查看发行说明](https://github.com/dxy624/Gephi-and-codex/releases/tag/v0.1.8-alpha)
 
 在 Gephi 内旋转、分层和探索三维网络，也可让 Codex 用中文控制同一个视图。此仓库包含 Gephi 插件、独立 MCP 服务和 `gephi-3d` Skill，三者配合使用。
 
@@ -56,7 +56,7 @@ py -3.12 scripts/setup.py --gephi "D:\Apps\Gephi-0.11.4" --install-skill --confi
 py -3.12 scripts/setup.py --configure-codex --replace-gephi-connection
 ```
 
-识别到上一发行包安装的桌面插件时，安装器会备份旧插件并升级。若安装器提示存在其他来源的模块，请在 Gephi 插件管理器里检查，可通过其中的「已下载」页安装新版 [NBM](dist/gephi-3d-explorer-0.1.7.nbm)。若此前编辑过同名 Skill，保留个人版本即可。安装后重开 Gephi 与 Codex。
+识别到上一发行包安装的桌面插件时，安装器会备份旧插件并升级。若安装器提示存在其他来源的模块，请在 Gephi 插件管理器里检查，可通过其中的「已下载」页安装新版 [NBM](dist/gephi-3d-explorer-0.1.8.nbm)。若此前编辑过同名 Skill，保留个人版本即可。安装后重开 Gephi 与 Codex。
 
 ## 3. 启动
 
@@ -104,7 +104,7 @@ py -3.12 scripts/setup.py --mode isolated --install-skill --configure-codex
 
 导入上限为 20 MB、10000 节点、100000 边；不支持动态图或嵌套 GEXF 节点，行政层级可使用普通节点、parent 属性和有向边表示。错误文件不会覆盖已有图。
 
-升级后重新打开所选模式的 Gephi 和 Codex，即可加载 32 个 MCP 工具。
+升级后重新打开所选模式的 Gephi 和 Codex，即可加载 36 个 MCP 工具。
 
 要一次完成导入、布局、配色和展示，可让 Codex 调用 `gephi3d_auto_draw`。它能直接读带节点表和连接表的 XLSX，或读静态 GEXF；按社区配色，用权重控制线宽，有向边才显示箭头。没有数据时，可以明确要求生成合成例子。
 
@@ -119,7 +119,17 @@ py -3.12 scripts/setup.py --mode isolated --install-skill --configure-codex
 
 这些设置随 `.gephi` 工程保存。Codex 可通过 `gephi3d_filter`、`gephi3d_layer_visibility`、`gephi3d_node_colors` 和 `gephi3d_paper_legend` 设置。
 
-## 6. 保存与导出
+## 6. 查看上下游、出图预设和年份对比
+
+在三维面板选中企业，点「查看上下游」，选择供应商、客户或双向，以及一阶或两阶。结果会显示相关企业数量、已有地图的定位覆盖情况和挡住结果的筛选项。需要时可在同一个窗口解除其中一项限制。
+
+「出图预设」提供「链主关系图」和「地理供应链图」。也可以保存当前配色、线宽、标签、地图设置、图例和视角，供同一个工程里的其他企业复用。SVG 内嵌中心企业、方向、筛选条件、年份和视角等信息。
+
+带边年份的工程可点「年份 / 对比」，选择一个年份或再选一个基准年。绿色表示仅所选年份有记录，红色表示仅基准年有记录。已合并年份的工程需要重导入原始关系表。年度关系表中的城市位置以每家企业最近一条非空城市代码为准，各年共用。详见 [数据字段](examples/README.md)。
+
+对应的 Codex 工具为 `gephi3d_supply_scope`、`gephi3d_clear_scope_block`、`gephi3d_figure_preset` 和 `gephi3d_years`。
+
+## 7. 保存与导出
 
 向 Codex 明确指定**可写文件夹的完整路径**。保存 `.gephi` 以保留网络、三维坐标、相机和书签；导出默认 6000×4000 PNG，也可生成嵌入该图和中文说明的 PDF。导出附带场景 JSON。
 

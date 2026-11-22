@@ -4,9 +4,11 @@ import com.jogamp.opengl.*;
 import com.jogamp.opengl.util.awt.TextRenderer;
 import com.jogamp.common.nio.Buffers;
 import org.joml.Matrix4f;
+import org.joml.Vector3f;
 import org.joml.Vector4f;
 import java.awt.Font;
 import java.nio.*;
+import java.util.List;
 import java.util.function.Supplier;
 
 /** Batched OpenGL edges and shaded point-sphere nodes with a real depth buffer. */
@@ -35,7 +37,24 @@ public final class GraphRenderer implements GLEventListener {
     static Matrix4f view(Scene s){return new Matrix4f().translate(0,0,(float)-s.distance).rotateX((float)s.pitch).rotateY((float)s.yaw).translate((float)-s.targetX,(float)-s.targetY,(float)-s.targetZ);}
     static boolean usesClassicRenderer(Scene scene) {
         return !scene.geographyEnabled && scene.visualStyle.equals("classic")
-            && !scene.showsArrows() && !scene.arrowsManuallySet;
+            && !scene.showsArrows() && !scene.arrowsManuallySet && scene.referenceYear == 0;
+    }
+
+    static void frame(Scene scene, List<double[]> positions, int width, int height) {
+        var rotation = new Matrix4f().rotateX((float) scene.pitch).rotateY((float) scene.yaw);
+        var min = new Vector3f(Float.POSITIVE_INFINITY);
+        var max = new Vector3f(Float.NEGATIVE_INFINITY);
+        for (double[] p : positions) {
+            var point = rotation.transformDirection(new Vector3f((float) p[0], (float) p[1], (float) p[2]));
+            min.min(point);
+            max.max(point);
+        }
+        var center = rotation.invert().transformDirection(new Vector3f(min).add(max).mul(.5f));
+        float span = Math.max(max.y - min.y, (max.x - min.x) * height / width);
+        scene.targetX = center.x;
+        scene.targetY = center.y;
+        scene.targetZ = center.z;
+        scene.distance = Math.max(80, span) * 1.65 + (max.z - min.z) / 2;
     }
     public static float[] project(Scene s,Scene.Vertex n,int w,int h){return project(s,matrix(s,w,h),n,w,h);}
     static float[] project(Scene scene, Matrix4f matrix, Scene.Vertex node, int width, int height) {
@@ -65,7 +84,7 @@ public final class GraphRenderer implements GLEventListener {
         gl.glMatrixMode(GL2.GL_PROJECTION);gl.glLoadMatrixf(projection.get(mat),0);gl.glMatrixMode(GL2.GL_MODELVIEW);gl.glLoadMatrixf(view(s).get(mat),0);
         int nn=s.nodes.size(),en=s.edges.size();FloatBuffer positions=Buffers.newDirectFloatBuffer(Math.max(3,en*6)),colors=Buffers.newDirectFloatBuffer(Math.max(4,en*8));
         int lines=0;
-        for(Scene.Link e:s.edges){Scene.Vertex a=s.nodes.get(e.source),b=s.nodes.get(e.target);if(!s.visible(a)||!s.visible(b)||e.weight<s.minWeight)continue;boolean hot=s.pathEdges.isEmpty()?(!s.highlight.isEmpty()&&s.highlight.contains(a.id)&&s.highlight.contains(b.id)):s.pathEdges.contains(e.id);float alpha=hot?.85f:s.highlight.isEmpty()?.25f:.035f;
+        for(Scene.Link e:s.edges){Scene.Vertex a=s.nodes.get(e.source),b=s.nodes.get(e.target);if(!s.visible(e))continue;boolean hot=s.directedScope()||(s.pathEdges.isEmpty()?(!s.highlight.isEmpty()&&s.highlight.contains(a.id)&&s.highlight.contains(b.id)):s.pathEdges.contains(e.id));float alpha=hot?.85f:s.highlight.isEmpty()?.25f:.035f;
             for(Scene.Vertex v:new Scene.Vertex[]{a,b}){positions.put((float)v.x).put((float)v.y).put((float)v.z);colors.put(hot?1f:s.dark?.5f:.35f).put(hot?.68f:s.dark?.65f:.4f).put(hot?.2f:s.dark?.8f:.45f).put(alpha);}lines+=2;}
         positions.flip();colors.flip();gl.glEnableClientState(GL2.GL_VERTEX_ARRAY);gl.glEnableClientState(GL2.GL_COLOR_ARRAY);gl.glVertexPointer(3,GL.GL_FLOAT,0,positions);gl.glColorPointer(4,GL.GL_FLOAT,0,colors);gl.glLineWidth((float)s.edgeWidth);gl.glDepthMask(false);gl.glDrawArrays(GL.GL_LINES,0,lines);gl.glDepthMask(true);
         positions=Buffers.newDirectFloatBuffer(Math.max(3,nn*3));colors=Buffers.newDirectFloatBuffer(Math.max(4,nn*4));FloatBuffer sizes=Buffers.newDirectFloatBuffer(Math.max(1,nn));int points=0;

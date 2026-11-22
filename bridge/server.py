@@ -7,7 +7,7 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from gephi3d_client import Gephi3D
 
-mcp = MCPServer('gephi-3d', version='0.1.7-alpha', instructions='Use the local Gephi plugin API for graph generation, import, exploration and export. These tools require no desktop input. Report connection/capability failures; do not fall back to desktop control unless the user explicitly requests interface operation. Inspect rendering through plugin exports, not desktop screenshots.')
+mcp = MCPServer('gephi-3d', version='0.1.8-alpha', instructions='Use the local Gephi plugin API for graph generation, import, exploration and export. These tools require no desktop input. Report connection/capability failures; do not fall back to desktop control unless the user explicitly requests interface operation. Inspect rendering through plugin exports, not desktop screenshots.')
 client = Gephi3D()
 
 def gephi_tool():
@@ -52,7 +52,7 @@ def gephi3d_status() -> dict:
 def gephi3d_supply_chain_map(path: str, basemap: str, city_table: str, leader_ids: list[str],
                              basemap_source: str, enabled: bool = False, city_attribute: str = 'city_code',
                              png_path: str | None = None, synthetic: bool = False) -> dict:
-    """Prepare an optional supply-chain map in a new workspace. Use only when geography is requested. Local geographic polygon GeoJSON and city CSV (city_code,city_name,longitude,latitude) must share a datum. Input is GEXF with a node city-code attribute, or a directed CSV/.dta edge table with source,target,source_city_code,target_city_code and optional weight, source/target names and communities. Explicit leaders are firm IDs. Map stays OFF unless explicitly enabled. Report unmatched cities and any unlocated leaders. Requires plugin 0.1.3+."""
+    """Prepare an optional supply-chain map in a new workspace. Local polygon GeoJSON and city CSV (city_code,city_name,longitude,latitude) must share a datum. Use GEXF or directed CSV/.dta with source,target,source_city_code,target_city_code; supplier_symbol/customer_symbol and their city codes are also accepted. A year column preserves annual links for 0.1.8+. The map uses each firm's most recent reported city with yearly tables. Explicit leaders are firm IDs. Map stays off unless enabled. Requires plugin 0.1.3+."""
     from supply_chain_map import draw_supply_chain
     return draw_supply_chain(client, path, basemap, city_table, leader_ids, basemap_source, enabled,
                              city_attribute, png_path, synthetic)
@@ -135,6 +135,43 @@ def gephi3d_filter(workspace_id: int, min_degree: int=0, min_weight: float=-1e10
 def require_view_controls() -> None:
     if 'view_controls' not in client.state().get('capabilities', []):
         raise ToolError('The connected Gephi plugin needs version 0.1.7 or later for these view controls.')
+
+def require_supply_feature(capability: str) -> None:
+    if capability not in client.state().get('capabilities', []):
+        raise ToolError('The connected Gephi plugin needs version 0.1.8 or later for this operation.')
+
+@gephi_tool()
+def gephi3d_supply_scope(workspace_id: int, direction: str='both', hops: int=1,
+                         roots: list[str] | None=None, clear: bool=False) -> dict:
+    """Show upstream suppliers, downstream customers or both in a directed network. Uses selected firms unless roots are given. Reports existing filters blocking the result and map coverage. Set clear=True to exit the scope."""
+    require_supply_feature('supply_scope')
+    if clear:
+        return client.command('clear_supply_scope', workspace_id)
+    options = dict(direction=direction, hops=hops)
+    if roots is not None:
+        options['roots'] = roots
+    return client.command('supply_scope', workspace_id, **options)
+
+@gephi_tool()
+def gephi3d_clear_scope_block(workspace_id: int, criterion: str) -> dict:
+    """Clear only the chosen blocking filter reported by gephi3d_supply_scope."""
+    require_supply_feature('supply_scope')
+    return client.command('clear_scope_block', workspace_id, criterion=criterion)
+
+@gephi_tool()
+def gephi3d_figure_preset(workspace_id: int, name: str, action: str='apply', restore_camera: bool | None=None) -> dict:
+    """Apply 链主关系图, 地理供应链图 or a named workspace preset, or save the current style/legend/view with action='save'. Set restore_camera=True to restore a saved preset's exact camera."""
+    require_supply_feature('figure_presets')
+    options = dict(name=name, action=action)
+    if restore_camera is not None:
+        options['restore_camera'] = restore_camera
+    return client.command('figure_preset', workspace_id, **options)
+
+@gephi_tool()
+def gephi3d_years(workspace_id: int, year: int=0, reference: int=0) -> dict:
+    """Switch to an observed relationship year, or compare it with an earlier or later observed reference year. A value of 0 means all years or no reference."""
+    require_supply_feature('edge_years')
+    return client.command('years', workspace_id, year=year, reference=reference)
 
 @gephi_tool()
 def gephi3d_layer(workspace_id: int, attribute: str='community', spacing: float=160) -> dict:

@@ -6,7 +6,7 @@
 - [nodes.csv](nodes.csv) / [edges.csv](edges.csv)：同一网络的节点表与边表，UTF-8 编码。
 - [预览图](../docs/assets/preview.png)：自动绘图入口生成的三社区有向加权示例。
 
-节点表必须有 `id`；边表必须有 `source`、`target`，可包含 `weight`。ID 作为字符串保留；Excel 中有前导零的 ID 应存成文本。节点 ID 不得重复，边端点必须存在；方向需要明确指定，重复边默认报错。
+节点表必须有 `id`；边表必须有 `source`、`target`，可包含 `weight` 和整数 `year`。ID 作为字符串保留；Excel 中有前导零的 ID 应存成文本。节点 ID 不得重复，边端点必须存在；方向需要明确指定。同一关系可跨年重复，同年重复边默认报错。
 
 转换同一示例：
 
@@ -22,9 +22,9 @@
 
 | 文件 | 最少字段或格式 |
 | --- | --- |
-| 供应链 CSV 或 `.dta` | `source`、`target`、`source_city_code`、`target_city_code`。可加 `weight`、`source_name`、`target_name`、`source_community`、`target_community` |
+| 供应链 CSV 或 `.dta` | `source`、`target`、`source_city_code`、`target_city_code`。可加 `year`、`weight`、`source_name`、`target_name`、`source_community`、`target_community` |
 | 或静态 GEXF | 节点保留 `city_code`，边保留真实方向和权重 |
 | 城市坐标 CSV | `city_code`、`city_name`、`longitude`、`latitude`。城市代码为六位，和关系表采用同一套编码 |
 | 底图 | 用户提供本地 GeoJSON 多边形和来源说明。城市坐标和底图应采用同一坐标基准，坐标顺序为经度、纬度 |
 
-CSV 和 `.dta` 的边按 `source → target` 构建。给出链主的企业 ID。同一企业在各行的城市代码须一致；多年数据先选择期间或合并成每个方向的一条关系。地图默认关闭，准备好后在三维面板手动勾选。城市匹配失败的企业仍可在普通视图查看。
+CSV 和 `.dta` 的边按 `source → target` 构建，也接受 `supplier_symbol`、`customer_symbol` 及对应的 `supplier_city_code`、`customer_city_code`。给出链主的企业 ID。带 `year` 的数据保留每个关系的年度权重，未给出权重时每条年度记录权重为 1。地图按企业最近一条非空城市代码定位，同一年相互冲突的城市代码需要先核对。地图默认关闭，准备好后在三维面板手动勾选。城市匹配失败的企业仍可在普通视图查看。

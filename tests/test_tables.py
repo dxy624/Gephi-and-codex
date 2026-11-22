@@ -1,4 +1,5 @@
 import sys
+import json
 from pathlib import Path
 import pytest
 import networkx as nx
@@ -23,3 +24,17 @@ def test_bad_endpoints_duplicate_and_nan(tmp_path):
     e.write_text('source,target,weight\na,b,1\nb,a,2\n',encoding='utf-8')
     with pytest.raises(ValueError,match='Duplicate edge'):convert(n,e,out,False)
     convert(n,e,out,False,'sum');assert nx.read_gexf(out)['a']['b']['weight']==3
+
+
+def test_years_survive_pair_merging(tmp_path):
+    nodes = tmp_path / 'nodes.csv'
+    edges = tmp_path / 'edges.csv'
+    result = tmp_path / 'annual.gexf'
+    nodes.write_text('id\n001\n002\n', encoding='utf-8')
+    edges.write_text('source,target,year,weight\n001,002,2020,2\n001,002,2021,5\n', encoding='utf-8')
+    convert(nodes, edges, result, True)
+    pair = nx.read_gexf(result)['001']['002']
+    assert pair['weight'] == 7 and json.loads(pair['year_weights']) == {'2020': 2, '2021': 5}
+    edges.write_text('source,target,year,weight\n001,002,2021,2\n001,002,2021,5\n', encoding='utf-8')
+    with pytest.raises(ValueError, match='Duplicate edge'):
+        convert(nodes, edges, tmp_path / 'duplicate.gexf', True)

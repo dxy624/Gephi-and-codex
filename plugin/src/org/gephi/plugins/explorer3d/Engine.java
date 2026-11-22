@@ -41,10 +41,13 @@ public final class Engine {
                 v.community=v.attributes.getOrDefault("community",v.attributes.getOrDefault("modularity_class",v.community));
                 index.put(n.getId(),nodes.size());nodes.add(v);
             }
-            for(Edge e:graph.getEdges()){Integer a=index.get(e.getSource().getId()),b=index.get(e.getTarget().getId());if(a==null||b==null)continue;Scene.Link l=new Scene.Link();l.id=e.getId().toString();l.source=a;l.target=b;l.directed=e.isDirected();l.weight=Double.isFinite(e.getWeight())?e.getWeight():1;edges.add(l);}
+            for(Edge e:graph.getEdges()){Integer a=index.get(e.getSource().getId()),b=index.get(e.getTarget().getId());if(a==null||b==null)continue;Scene.Link l=new Scene.Link();l.id=e.getId().toString();l.source=a;l.target=b;l.directed=e.isDirected();l.weight=Double.isFinite(e.getWeight())?e.getWeight():1;l.years=EdgeYears.read(e,l.weight);edges.add(l);}
         }finally{graph.readUnlock();}
         s.nodes=nodes;s.edges=edges;s.selection.retainAll(oldIds(nodes));s.highlight.retainAll(oldIds(nodes));s.pathEdges.clear();
         s.refreshViewCaches();
+        var years = EdgeYears.available(s);
+        if (!years.contains(s.activeYear)) { s.activeYear = 0; s.referenceYear = 0; }
+        else if (!years.contains(s.referenceYear)) s.referenceYear = 0;
         if(old.isEmpty())s.fit();
     }
     Set<String> oldIds(List<Scene.Vertex> nodes){Set<String> ids=new HashSet<>();for(Scene.Vertex v:nodes)ids.add(v.id);return ids;}
@@ -52,7 +55,7 @@ public final class Engine {
     void replace(Scene before,Scene after){Workspace w=workspace();w.remove(before);after.revision=before.revision+1;w.add(after);changed.run();}
     void history(boolean backwards){cancel.set(true);Scene s=requireScene();Map<Integer,Deque<Scene>> a=backwards?undo:redo,b=backwards?redo:undo;Deque<Scene> q=a.computeIfAbsent(s.workspaceId,k->new ArrayDeque<>());if(q.isEmpty())throw new IllegalArgumentException("No history available");b.computeIfAbsent(s.workspaceId,k->new ArrayDeque<>()).push(s.copy());replace(s,q.pop());}
     Scene requireScene(){Scene s=scene();if(s==null)throw new IllegalArgumentException("No workspace open. Generate an example or open a project first.");return s;}
-    public Map<String,Object> state(){Scene s=scene();Map<String,Object> result=new LinkedHashMap<>();result.put("success",true);result.put("version","0.1.7-alpha");result.put("capabilities",List.of("import_graph","offscreen_export","no_desktop_input","visual_presets","geography","arrow_style","paper_svg","view_controls"));result.put("has_workspace",s!=null);result.put("scene",s==null?null:s.status());result.put("layout",Map.of("job_id",jobId,"state",jobState,"iteration",iteration,"error",jobError));result.put("renderer",ExplorerPanel.rendererStatus);return result;}
+    public Map<String,Object> state(){Scene s=scene();Map<String,Object> result=new LinkedHashMap<>();result.put("success",true);result.put("version","0.1.8-alpha");result.put("capabilities",List.of("import_graph","offscreen_export","no_desktop_input","visual_presets","geography","arrow_style","paper_svg","view_controls","supply_scope","figure_presets","edge_years"));result.put("has_workspace",s!=null);result.put("scene",s==null?null:s.status());result.put("layout",Map.of("job_id",jobId,"state",jobState,"iteration",iteration,"error",jobError));result.put("renderer",ExplorerPanel.rendererStatus);return result;}
 
     Scene paperSnapshot(int workspaceId) {
         Scene current = requireScene();
@@ -99,6 +102,11 @@ public final class Engine {
             case "highlight_community":s.highlight.clear();s.pathEdges.clear();Set<String> communities=new HashSet<>(strings(j,"communities"));for(Scene.Vertex n:s.nodes)if(communities.contains(n.community))s.highlight.add(n.id);s.isolate=bool(j,"isolate",false);break;
             case "clear_highlight":s.highlight.clear();s.pathEdges.clear();s.isolate=false;break;
             case "filter":applyFilters(s,j);break;
+            case "supply_scope":applySupplyScope(s,j);break;
+            case "clear_supply_scope":s.neighborhoodDirection="any";s.neighborhoodHops=0;s.neighborhoodRoots.clear();s.refreshViewCaches();break;
+            case "clear_scope_block":clearScopeBlock(s,str(j,"criterion",""));fitScope(s,j);break;
+            case "figure_preset":applyPreset(s,j);break;
+            case "years":applyYears(s,j);break;
             case "pin":for(String id:strings(j,"ids"))s.find(id).pinned=bool(j,"pinned",true);break;
             case "layer":s.layer(str(j,"attribute","community"),num(j,"spacing",160));break;
             case "unlayer":s.layerAttribute="";s.hiddenLayers.clear();break;
@@ -121,6 +129,7 @@ public final class Engine {
                     s.geographicCamera = null;
                 }
                 s.toggleGeography(bool(j,"enabled",s.geographyEnabled));
+                fitScope(s,j);
                 break;
             }
             case "bookmark":{String name=str(j,"name","view");if(bool(j,"restore",false)){double[] c=s.bookmarks.get(name);if(c==null)throw new IllegalArgumentException("Unknown bookmark");s.yaw=c[0];s.pitch=c[1];s.distance=c[2];s.targetX=c[3];s.targetY=c[4];s.targetZ=c[5];s.perspective=c[6]>0;}else s.bookmarks.put(name,new double[]{s.yaw,s.pitch,s.distance,s.targetX,s.targetY,s.targetZ,s.perspective?1:0});break;}
@@ -132,6 +141,10 @@ public final class Engine {
     private static void applyFilters(Scene scene, JsonObject options) {
         int hops = integer(options, "hops", 0);
         if (hops < 0 || hops > 2) throw new IllegalArgumentException("邻居范围只能为 0、1 或 2 阶");
+        String direction = hops == 0 ? "any" : str(options, "direction", "any");
+        if (!Set.of("any", "upstream", "downstream", "both").contains(direction)) {
+            throw new IllegalArgumentException("Unknown relationship direction");
+        }
         var roots = new LinkedHashSet<String>();
         if (hops != 0) {
             roots.addAll(options.has("roots") ? strings(options, "roots") : scene.selection);
@@ -144,8 +157,80 @@ public final class Engine {
         scene.nodeQuery = str(options, "node_query", "").strip().toLowerCase(Locale.ROOT);
         scene.cityQuery = str(options, "city_query", "").strip().toLowerCase(Locale.ROOT);
         scene.neighborhoodHops = hops;
+        scene.neighborhoodDirection = direction;
         scene.neighborhoodRoots = roots;
         scene.refreshViewCaches();
+        fitScope(scene, options);
+    }
+
+    private static void applySupplyScope(Scene scene, JsonObject options) {
+        int hops = integer(options, "hops", 1);
+        String direction = str(options, "direction", "both");
+        if (hops < 1 || hops > 2 || !Set.of("upstream", "downstream", "both").contains(direction)) {
+            throw new IllegalArgumentException("请选择供应商、客户或双向，以及一阶或两阶");
+        }
+        var roots = new LinkedHashSet<>(options.has("roots") ? strings(options, "roots") : scene.selection);
+        if (roots.isEmpty()) throw new IllegalArgumentException("请先查找或选中中心企业");
+        for (String id : roots) scene.find(id);
+        scene.selection = new LinkedHashSet<>(roots);
+        scene.neighborhoodRoots = roots;
+        scene.neighborhoodDirection = direction;
+        scene.neighborhoodHops = hops;
+        scene.refreshViewCaches();
+        fitScope(scene, options);
+    }
+
+    private static void fitScope(Scene scene, JsonObject options) {
+        if (!scene.directedScope()) return;
+        var positions = scene.nodes.stream().filter(scene::visible)
+            .map(node -> scene.geographyEnabled ? scene.geography.positions.get(node.id) : new double[]{node.x,node.y,node.z})
+            .toList();
+        if (!positions.isEmpty()) GraphRenderer.frame(scene, positions,
+            Math.max(300, integer(options, "width", 1200)), Math.max(200, integer(options, "height", 800)));
+    }
+
+    private static void clearScopeBlock(Scene scene, String criterion) {
+        if (!scene.directedScope()) throw new IllegalArgumentException("请先打开上下游视图");
+        switch (criterion) {
+            case "community" -> scene.communityFilter = "";
+            case "layers" -> scene.hiddenLayers.clear();
+            case "degree" -> scene.minDegree = 0;
+            case "enterprise" -> scene.nodeQuery = "";
+            case "city" -> scene.cityQuery = "";
+            case "isolation" -> scene.isolate = false;
+            default -> throw new IllegalArgumentException("Unknown filter criterion");
+        }
+    }
+
+    private static void applyPreset(Scene scene, JsonObject options) {
+        String name = str(options, "name", "").strip();
+        if (name.isEmpty() || name.length() > 80) throw new IllegalArgumentException("预设名称需为 1–80 个字符");
+        FigurePreset builtIn = FigurePreset.builtIn(name);
+        String action = str(options, "action", "apply");
+        if (action.equals("save")) {
+            if (builtIn != null) throw new IllegalArgumentException("请为自定义预设选一个不同的名称");
+            scene.figurePresets.put(name, FigurePreset.capture(scene));
+        } else if (action.equals("apply")) {
+            FigurePreset preset = builtIn != null ? builtIn : scene.figurePresets.get(name);
+            if (preset == null) throw new IllegalArgumentException("找不到预设：" + name);
+            boolean restore = bool(options, "restore_camera", false);
+            boolean switchedMap = preset.geography() != scene.geographyEnabled;
+            preset.apply(scene, restore);
+            if (builtIn != null || switchedMap && !restore) fitScope(scene, options);
+        } else throw new IllegalArgumentException("Unknown preset action");
+    }
+
+    private static void applyYears(Scene scene, JsonObject options) {
+        int year = integer(options, "year", 0), reference = integer(options, "reference", 0);
+        var available = EdgeYears.available(scene);
+        if ((year != 0 && !available.contains(year)) ||
+            (reference != 0 && (year == 0 || year == reference || !available.contains(reference)))) {
+            throw new IllegalArgumentException("请选择数据中有记录的不同年份");
+        }
+        scene.activeYear = year;
+        scene.referenceYear = reference;
+        scene.refreshViewCaches();
+        fitScope(scene, options);
     }
 
     private static void applyNodeColors(Scene scene, JsonObject options) {

@@ -25,12 +25,17 @@ public final class Scene {
     public String communityFilter = "", layerAttribute = "";
     public String nodeQuery = "", cityQuery = "", colorField = "", colorMode = "category";
     public int neighborhoodHops;
+    public String neighborhoodDirection = "any";
     public Set<String> neighborhoodRoots = new LinkedHashSet<>();
     public Set<String> hiddenLayers = new LinkedHashSet<>();
     public String legendPosition = "bottom";
     public Set<String> hiddenLegendItems = new LinkedHashSet<>();
     public Map<String,String> legendLabels = new LinkedHashMap<>();
+    public Map<String,FigurePreset> figurePresets = new LinkedHashMap<>();
+    public int activeYear, referenceYear;
     private transient Set<String> neighborhoodNodes;
+    private transient Set<String> periodNodes;
+    private transient SupplyScope supplyScope;
     private transient NodeColors colors;
     public double layerSpacing = 160;
     public List<Vertex> nodes = new ArrayList<>();
@@ -51,6 +56,7 @@ public final class Scene {
         public int source,target;
         public double weight=1;
         public boolean directed;
+        public Map<Integer,Double> years = Map.of();
     }
     private static final Gson COPY_JSON = new com.google.gson.GsonBuilder()
         .addSerializationExclusionStrategy(new com.google.gson.ExclusionStrategy() {
@@ -82,11 +88,55 @@ public final class Scene {
                 || contains(node.attributes.get("city_name"), cityQuery)
                 || contains(node.attributes.get("reported_city_name"), cityQuery))
             && (!isolate || highlight.isEmpty() || highlight.contains(node.id))
-            && (neighborhoodHops == 0 || neighborhood().contains(node.id));
+            && (neighborhoodHops == 0 ? activeYear == 0 || periodNodes().contains(node.id) : neighborhood().contains(node.id));
     }
 
     boolean visible(Link edge) {
-        return edge.weight >= minWeight && visible(nodes.get(edge.source)) && visible(nodes.get(edge.target));
+        return passesEdge(edge) && visible(nodes.get(edge.source)) && visible(nodes.get(edge.target));
+    }
+
+    boolean directedScope() { return neighborhoodHops != 0 && !neighborhoodDirection.equals("any"); }
+
+    boolean passesEdge(Link edge) {
+        return edgeInPeriod(edge) && (!directedScope() || supplyScope().edges().contains(edge.id));
+    }
+
+    boolean edgeInPeriod(Link edge) { return EdgeYears.weight(this, edge) >= minWeight; }
+
+    boolean edgeInYear(Link edge, int year, double threshold) {
+        return (year == 0 ? edge.weight : edge.years.getOrDefault(year, Double.NaN)) >= threshold;
+    }
+
+    private Set<String> periodNodes() {
+        if (periodNodes == null) {
+            var firms = new HashSet<String>();
+            for (Link edge : edges) if (edge.years.containsKey(activeYear) ||
+                referenceYear != 0 && edge.years.containsKey(referenceYear)) {
+                firms.add(nodes.get(edge.source).id);
+                firms.add(nodes.get(edge.target).id);
+            }
+            periodNodes = firms;
+        }
+        return periodNodes;
+    }
+
+    SupplyScope supplyScope() {
+        if (supplyScope == null) supplyScope = SupplyScope.create(this);
+        return supplyScope;
+    }
+
+    List<String> blockers(Vertex node) {
+        List<String> reasons = new ArrayList<>();
+        if (node.degree < minDegree) reasons.add("degree");
+        if (!communityFilter.isEmpty() && !node.community.equals(communityFilter)) reasons.add("community");
+        if (!layerAttribute.isEmpty() && hiddenLayers.contains(fieldValue(node, layerAttribute))) reasons.add("layers");
+        if (!nodeQuery.isEmpty() && !contains(node.id, nodeQuery) && !contains(node.label, nodeQuery)
+            && !contains(node.attributes.get("firm_code"), nodeQuery)) reasons.add("enterprise");
+        if (!cityQuery.isEmpty() && !contains(node.attributes.get("city_code"), cityQuery)
+            && !contains(node.attributes.get("city_name"), cityQuery)
+            && !contains(node.attributes.get("reported_city_name"), cityQuery)) reasons.add("city");
+        if (isolate && !highlight.isEmpty() && !highlight.contains(node.id)) reasons.add("isolation");
+        return reasons;
     }
 
     private static boolean contains(String value, String query) {
@@ -95,15 +145,19 @@ public final class Scene {
 
     void refreshViewCaches() {
         neighborhoodNodes = null;
+        periodNodes = null;
+        supplyScope = null;
         colors = null;
     }
 
     private Set<String> neighborhood() {
+        if (directedScope()) return supplyScope().nodes();
         if (neighborhoodNodes == null) {
             Set<Integer> roots = new LinkedHashSet<>();
             for (int i = 0; i < nodes.size(); i++) if (neighborhoodRoots.contains(nodes.get(i).id)) roots.add(i);
             Set<String> found = new HashSet<>();
-            for (int i : reachable(roots, neighborhoodHops, minWeight)) found.add(nodes.get(i).id);
+            for (int i : reachable(roots, neighborhoodHops, minWeight, activeYear)) found.add(nodes.get(i).id);
+            if (referenceYear != 0) for (int i : reachable(roots, neighborhoodHops, minWeight, referenceYear)) found.add(nodes.get(i).id);
             neighborhoodNodes = found;
         }
         return neighborhoodNodes;
@@ -143,7 +197,11 @@ public final class Scene {
         m.put("visible_edges",edges.stream().filter(this::visible).count());
         m.put("filters",Map.of("node_query",nodeQuery,"city_query",cityQuery,"community",communityFilter,
             "min_degree",minDegree,"min_weight",minWeight,"neighborhood_hops",neighborhoodHops,
-            "neighbor_roots",neighborhoodRoots));
+            "neighbor_roots",neighborhoodRoots,"neighborhood_direction",neighborhoodDirection));
+        if (directedScope()) m.put("supply_scope", supplyScope().report(this));
+        m.put("years", Map.of("available", EdgeYears.available(this), "current", activeYear, "reference", referenceYear,
+            "comparison", EdgeYears.comparison(this)));
+        m.put("figure_presets", figurePresets.keySet());
         m.put("hidden_layers", hiddenLayers);
         m.put("node_colors", Map.of("field", colorField, "mode", colorMode));
         m.put("paper_legend", Map.of("position", legendPosition, "hidden", hiddenLegendItems, "labels", legendLabels));
@@ -151,7 +209,7 @@ public final class Scene {
         m.put("camera",Map.of("yaw",yaw,"pitch",pitch,"distance",distance,"target",new double[]{targetX,targetY,targetZ},"perspective",perspective));
         m.put("bookmarks",bookmarks.keySet());m.put("layer_attribute",layerAttribute);
         m.put("style", Map.of("preset", visualStyle, "arrows", showsArrows(), "dark", dark, "labels", labels,
-            "edge_width", edgeWidth, "arrow_scale", arrowScale));
+            "edge_width", edgeWidth, "arrow_scale", arrowScale, "node_scale", nodeScale));
         if (geography != null) m.put("geography", Map.of("enabled", geographyEnabled,
             "source", geography.source, "matched_nodes", nodes.stream().filter(n -> geography.positions.containsKey(n.id)).count(),
             "cities", geography.cities.size(), "leader_communities", geography.communities));
@@ -201,20 +259,22 @@ public final class Scene {
     static double sq(double x){return x*x;}
     public List<List<Integer>> adjacency(boolean directed) {
         List<List<Integer>> a=new ArrayList<>(); for(Vertex n:nodes)a.add(new ArrayList<>());
-        for(Link e:edges){a.get(e.source).add(e.target);if(!directed || !e.directed)a.get(e.target).add(e.source);}
+        for(Link e:edges)if(edgeInYear(e, activeYear, -Double.MAX_VALUE)){a.get(e.source).add(e.target);if(!directed || !e.directed)a.get(e.target).add(e.source);}
         return a;
     }
     public void neighbors(String id,int hops) {
         if(hops<1 || hops>20)throw new IllegalArgumentException("hops must be 1..20");
         Vertex start=find(id);
         highlight.clear();pathEdges.clear();
-        for(int i:reachable(Set.of(nodes.indexOf(start)), hops, -Double.MAX_VALUE)) highlight.add(nodes.get(i).id);
+        var roots = Set.of(nodes.indexOf(start));
+        for(int i:reachable(roots, hops, -Double.MAX_VALUE, activeYear)) highlight.add(nodes.get(i).id);
+        if (referenceYear != 0) for (int i : reachable(roots, hops, -Double.MAX_VALUE, referenceYear)) highlight.add(nodes.get(i).id);
     }
 
-    private Set<Integer> reachable(Set<Integer> roots, int hops, double threshold) {
+    private Set<Integer> reachable(Set<Integer> roots, int hops, double threshold, int year) {
         List<List<Integer>> adj=new ArrayList<>();
         for(Vertex node:nodes)adj.add(new ArrayList<>());
-        for(Link edge:edges) if(edge.weight >= threshold){
+        for(Link edge:edges) if(edgeInYear(edge, year, threshold)){
             adj.get(edge.source).add(edge.target);
             adj.get(edge.target).add(edge.source);
         }
@@ -230,7 +290,7 @@ public final class Scene {
         List<String> path=new ArrayList<>();highlight.clear();pathEdges.clear();if(prev[t]<0)return path;
         List<Integer> indices=new ArrayList<>();for(int p=t;;p=prev[p]){indices.add(p);if(p==s)break;}Collections.reverse(indices);
         for(int i:indices){String id=nodes.get(i).id;path.add(id);highlight.add(id);}
-        for(int p=1;p<indices.size();p++){int a=indices.get(p-1),b=indices.get(p);for(Link e:edges)if((e.source==a && e.target==b)||((!directed||!e.directed)&&e.source==b&&e.target==a))pathEdges.add(e.id);}
+        for(int p=1;p<indices.size();p++){int a=indices.get(p-1),b=indices.get(p);for(Link e:edges)if(edgeInYear(e,activeYear,-Double.MAX_VALUE)&&((e.source==a && e.target==b)||((!directed||!e.directed)&&e.source==b&&e.target==a)))pathEdges.add(e.id);}
         return path;
     }
     public void layer(String attribute,double spacing) {

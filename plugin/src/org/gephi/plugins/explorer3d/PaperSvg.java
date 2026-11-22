@@ -20,7 +20,6 @@ import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
 import org.joml.Matrix4f;
-import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 /** Editable 2D artwork projected from a snapshot of the current 3D view. */
@@ -117,6 +116,7 @@ final class PaperSvg {
     }
 
     private boolean isFocusEdge(Scene.Link link) {
+        if (scene.directedScope()) return scene.supplyScope().edges().contains(link.id);
         if (!scene.pathEdges.isEmpty()) return scene.pathEdges.contains(link.id);
         String from = scene.nodes.get(link.source).id;
         String to = scene.nodes.get(link.target).id;
@@ -133,7 +133,7 @@ final class PaperSvg {
         for (Scene.Link link : scene.edges) {
             Scene.Vertex from = scene.nodes.get(link.source);
             Scene.Vertex to = scene.nodes.get(link.target);
-            if (link.weight >= scene.minWeight && isFocusEdge(link) && scene.visible(from) && scene.visible(to)) {
+            if (isFocusEdge(link) && scene.visible(link)) {
                 endpoints.add(from.id);
                 endpoints.add(to.id);
             }
@@ -149,20 +149,7 @@ final class PaperSvg {
                 || point[1] < margin || point[1] > height - margin || Math.abs(point[2]) > 1;
         });
         if (!outside) return;
-        var rotation = new Matrix4f().rotateX((float) scene.pitch).rotateY((float) scene.yaw);
-        var min = new Vector3f(Float.POSITIVE_INFINITY);
-        var max = new Vector3f(Float.NEGATIVE_INFINITY);
-        for (double[] p : positions) {
-            var point = rotation.transformDirection(new Vector3f((float) p[0], (float) p[1], (float) p[2]));
-            min.min(point);
-            max.max(point);
-        }
-        var center = rotation.invert().transformDirection(new Vector3f(min).add(max).mul(.5f));
-        float span = Math.max(max.y - min.y, (max.x - min.x) * height / width);
-        scene.targetX = center.x;
-        scene.targetY = center.y;
-        scene.targetZ = center.z;
-        scene.distance = Math.max(80, span) * 1.65 + (max.z - min.z) / 2;
+        GraphRenderer.frame(scene, positions, width, height);
     }
 
     static String defaultDirection(Scene scene) {
@@ -180,7 +167,7 @@ final class PaperSvg {
     private void prepareEdges() {
         float contextAlpha = Math.max(.05f, Math.min(.17f, (float) (3.5 / Math.sqrt(scene.edges.size() + 1))));
         for (Scene.Link link : scene.edges) {
-            if (link.weight < scene.minWeight) continue;
+            if (!scene.passesEdge(link)) continue;
             Scene.Vertex source = scene.nodes.get(link.source), target = scene.nodes.get(link.target);
             if (!scene.passesFilters(source) || !scene.passesFilters(target)) continue;
             boolean focus = focusActive && isFocusEdge(link);
@@ -201,6 +188,9 @@ final class PaperSvg {
                         style.width() * .64f, style.curved(),
                         style.arrowLength() * .66f);
             }
+            int comparison = EdgeYears.changeColor(scene, link, style.color());
+            if (comparison != style.color()) style = new DiagramRenderer.EdgeStyle(comparison, .9f, style.width(),
+                style.curved(), style.arrowLength());
             var shape = DiagramRenderer.edgeShape(from, to, projection.unit(), style);
             if (shape == null) continue;
             float pad = style.width() + style.arrowLength();
@@ -295,8 +285,14 @@ final class PaperSvg {
             String description = leaders && selected ? "链主 / 已选节点" : leaders ? "链主" : "已选节点";
             keys.add(new Key("selection", description, DiagramRenderer.ACCENT, 0, false, false));
         }
-        if (drawnFocusEdges > 0) {
+        if (edges.stream().anyMatch(edge -> edge.focus && EdgeYears.changeColor(scene, edge.link, FOCUS_INK) == FOCUS_INK)) {
             keys.add(new Key("focus", "重点关系", FOCUS_INK, fontSize * .2f, true, false));
+        }
+        if (scene.referenceYear != 0) {
+            if (edges.stream().anyMatch(e -> EdgeYears.change(scene, e.link).equals("added")))
+                keys.add(new Key("year_added", "仅 " + scene.activeYear + " 年记录", EdgeYears.ADDED, fontSize * .18f, true, false));
+            if (edges.stream().anyMatch(e -> EdgeYears.change(scene, e.link).equals("removed")))
+                keys.add(new Key("year_removed", "仅 " + scene.referenceYear + " 年记录", EdgeYears.REMOVED, fontSize * .18f, true, false));
         }
         if (scene.colors().active()) {
             addFieldKeys(scene.colors());
@@ -311,14 +307,23 @@ final class PaperSvg {
         }
         if (!projection.classic() && !edges.isEmpty()) {
             List<Edge> samples = drawnFocusEdges > 0 ? edges.stream().filter(Edge::focus).toList() : edges;
-            Edge low = samples.stream().min(Comparator.comparingDouble(e -> e.link.weight)).orElseThrow();
-            Edge high = samples.stream().max(Comparator.comparingDouble(e -> e.link.weight)).orElseThrow();
-            if (low.link.weight != high.link.weight) {
+            var byWeight = Comparator.comparingDouble((Edge e) -> EdgeYears.weight(scene, e.link));
+            Edge low = samples.stream().min(byWeight).orElseThrow();
+            Edge high = samples.stream().max(byWeight).orElseThrow();
+            if (byWeight.compare(low, high) != 0) {
                 int ink = drawnFocusEdges > 0 ? FOCUS_INK : CONTEXT_INK;
-                keys.add(new Key("weight_low", "边权 " + weight(low.link.weight), ink, low.style.width(), true, false));
-                keys.add(new Key("weight_high", "边权 " + weight(high.link.weight), ink, high.style.width(), true, false));
+                keys.add(new Key("weight_low", "边权 " + weight(EdgeYears.weight(scene, low.link)), ink, low.style.width(), true, false));
+                keys.add(new Key("weight_high", "边权 " + weight(EdgeYears.weight(scene, high.link)), ink, high.style.width(), true, false));
             }
         }
+        if (scene.activeYear != 0) notes.add(scene.referenceYear == 0 ? scene.activeYear + " 年关系"
+            : "年份对比 " + scene.referenceYear + " → " + scene.activeYear);
+        if (scene.activeYear != 0 && scene.geographyEnabled && scene.geography.locationReference != null) {
+            notes.add("城市定位 · " + scene.geography.locationReference);
+        }
+        if (scene.directedScope()) notes.add("中心 " + String.join("、", scene.neighborhoodRoots) + " · "
+            + scene.neighborhoodHops + " 阶" + SupplyScope.directionLabel(scene.neighborhoodDirection)
+            + (scene.minWeight > -1e100 ? " · 边权 ≥ " + weight(scene.minWeight) : ""));
         if (focusEdges > 0) notes.add("重点关系 " + drawnFocusEdges + " / " + focusEdges + " 条入图"
             + (unlocatedFocusEdges > 0 ? " · " + unlocatedFocusEdges + " 条缺少城市定位" : ""));
         String coverage = "视野内 " + visible.size() + " / " + scene.nodes.size() + " 个节点，"
@@ -413,6 +418,13 @@ final class PaperSvg {
         writer.writeDefaultNamespace(SVG_NS);
         svg.start("title"); svg.text(title); svg.end();
         svg.start("desc"); svg.text(String.join("。", notes)); svg.end();
+        var state = scene.status();
+        var settings = new LinkedHashMap<String,Object>();
+        for (String key : List.of("source", "selection", "filters", "hidden_layers", "layer_attribute",
+            "node_colors", "style", "camera", "paper_legend", "years", "geography", "supply_scope")) {
+            if (state.containsKey(key)) settings.put(key, state.get(key));
+        }
+        svg.start("metadata", "id", "network-view"); svg.text(Scene.JSON.toJson(settings)); svg.end();
         svg.start("defs");
         svg.start("clipPath", "id", "plot-clip");
         svg.empty("rect", "width", width, "height", height);
@@ -467,8 +479,8 @@ final class PaperSvg {
             } else geometry += " L";
             geometry += " " + xy(shape.x(t), shape.y(t));
             svg.empty("path", "d", geometry, "stroke", rgb(edge.style.color()), "stroke-width", n(edge.style.width()),
-                "opacity", n(edge.style.alpha()), "data-edge-id", edge.link.id, "data-weight", edge.link.weight,
-                "data-focus", edge.focus,
+                "opacity", n(edge.style.alpha()), "data-edge-id", edge.link.id, "data-weight", EdgeYears.weight(scene, edge.link),
+                "data-focus", edge.focus, "data-year-status", EdgeYears.change(scene, edge.link),
                 "data-source", scene.nodes.get(edge.link.source).id, "data-target", scene.nodes.get(edge.link.target).id);
         }
         svg.end();

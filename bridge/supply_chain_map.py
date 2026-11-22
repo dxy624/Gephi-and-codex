@@ -7,6 +7,7 @@ import json
 from math import asin, cos, isfinite, radians, sin, sqrt
 from pathlib import Path
 import re
+import sys
 from tempfile import TemporaryDirectory
 
 import networkx as nx
@@ -119,10 +120,20 @@ def read_network(path):
         return nx.read_gexf(path)
     if suffix not in {'.csv', '.dta'}:
         raise ValueError('Supply chain data must be a local GEXF, CSV or Stata .dta file')
+    root = str(Path(__file__).resolve().parents[1])
+    if root not in sys.path:
+        sys.path.insert(0, root)
+    from scripts.tables_to_gexf import add_relationship, edge_year, serialize_relationship_years
+
     graph = nx.DiGraph()
+    city_records = {}
     for line, row in enumerate(edge_table(path), 2):
+        if 'source' not in row and {'supplier_symbol', 'customer_symbol'} <= row.keys():
+            row = {**row, 'source': row['supplier_symbol'], 'target': row['customer_symbol'],
+                   'source_city_code': row.get('supplier_city_code'), 'target_city_code': row.get('customer_city_code')}
         if not {'source', 'target', 'source_city_code', 'target_city_code'} <= row.keys():
             raise ValueError('The edge table needs source, target, source_city_code and target_city_code')
+        year = edge_year(row.get('year'), line)
         ids = []
         for side in ('source', 'target'):
             if row[side] is None or not str(row[side]).strip():
@@ -140,17 +151,31 @@ def read_network(path):
                     continue
                 value = (city_code(value) or str(value).strip()) if attribute == 'city_code' else str(value).strip()
                 existing = node.get(attribute)
+                if attribute == 'city_code' and year is not None:
+                    recorded = city_records.get(firm)
+                    if recorded is None or year > recorded:
+                        city_records[firm] = year
+                        node[attribute] = value
+                    elif year == recorded and existing != value:
+                        raise ValueError(f'Conflicting city code for {firm} in {year} at row {line}')
+                    continue
                 if existing is not None and existing != value and not (attribute == 'label' and existing == firm):
                     raise ValueError(f'Conflicting {attribute} for {firm} at row {line}; choose a period or location definition first')
                 node[attribute] = value
-        if graph.has_edge(*ids):
-            raise ValueError(f'Duplicate firm pair at row {line}; filter or aggregate rows first')
         weight = float(1 if row.get('weight') in {None, ''} else row['weight'])
         if not isfinite(weight) or weight < 0:
             raise ValueError(f'Invalid weight at row {line}')
-        graph.add_edge(*ids, weight=weight)
+        try:
+            add_relationship(graph, *ids, weight, year, {}, line)
+        except ValueError as exc:
+            if graph.has_edge(*ids) and str(exc).startswith('Duplicate edge'):
+                raise ValueError(f'Duplicate firm pair at row {line}; choose a year or aggregate duplicate rows first') from exc
+            raise
         if len(graph) > 10_000 or graph.number_of_edges() > 100_000:
             raise ValueError('Network exceeds 10000 firms or 100000 links')
+    serialize_relationship_years(graph)
+    if city_records:
+        graph.graph['city_reference'] = '最近一次有记录的城市代码（各年共用）'
     return graph
 
 
@@ -202,6 +227,9 @@ def prepare_geography(graph, boundary, city_table, leader_ids, source, city_attr
     report = {'matched_firms': len(positions), 'matched_cities': len(markers), 'unmatched_firms': sum(missing.values()),
               'unmatched_codes': dict(missing.most_common(30)), 'leaders_without_location': sorted(lead_set - positions.keys()),
               'leader_communities': leader_groups, 'community_source': 'input' if groups_given else 'network topology'}
+    if reference := graph.graph.get('city_reference'):
+        layer['locationReference'] = reference
+        report['location_reference'] = reference
     return layer, report
 
 

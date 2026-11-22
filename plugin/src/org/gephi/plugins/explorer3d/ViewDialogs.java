@@ -60,7 +60,8 @@ final class ViewDialogs {
             var roots = selected.isSelected() || scene.neighborhoodRoots.isEmpty() ? scene.selection : scene.neighborhoodRoots;
             panel.actIn(scene.workspaceId, revision, "filter", "node_query", node.getText(), "city_query", city.getText(),
                 "community", community.getEditor().getItem().toString().strip(), "min_degree", degree.getValue(),
-                "min_weight", minWeight, "hops", neighborhood.getSelectedIndex(), "roots", roots);
+                "min_weight", minWeight, "hops", neighborhood.getSelectedIndex(), "roots", roots,
+                "direction", scene.neighborhoodDirection, "width", panel.paperViewWidth(), "height", panel.paperViewHeight());
         }
     }
 

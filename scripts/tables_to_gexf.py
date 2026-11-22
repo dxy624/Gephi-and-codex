@@ -1,6 +1,7 @@
 """Convert node/edge CSV or XLSX without losing string IDs or Chinese labels."""
 import argparse
 import csv
+import json
 import math
 from pathlib import Path
 import networkx as nx
@@ -16,6 +17,47 @@ def rows(path):
             data=iter(wb.active.values);header=next(data);return [dict(zip(header,row)) for row in data if any(x is not None for x in row)]
         finally:wb.close()
     raise ValueError('Expected .csv or .xlsx')
+
+
+def edge_year(value, row):
+    if value is None or str(value).strip() == '':
+        return None
+    try:
+        year = float(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError(f'Invalid relationship year at row {row}') from exc
+    if not math.isfinite(year) or not year.is_integer() or not 1 <= year <= 9999:
+        raise ValueError(f'Invalid relationship year at row {row}')
+    return int(year)
+
+
+def add_relationship(graph, source, target, weight, year, attributes, row, duplicates='error'):
+    if graph.has_edge(source, target):
+        edge = graph[source][target]
+        annual = edge.get('_annual_weights')
+        if (annual is None) != (year is None):
+            raise ValueError(f'The same relationship has both dated and undated rows at row {row}')
+        if (year is None or year in annual) and duplicates == 'error':
+            raise ValueError(f'Duplicate edge at row {row}: {source}, {target}; '
+                             'choose --duplicates sum explicitly if appropriate')
+        total = edge['weight'] + weight
+        if not math.isfinite(total):
+            raise ValueError(f'Edge weight overflow at row {row}')
+        edge['weight'] = total
+        if year is not None:
+            annual[year] = annual.get(year, 0) + weight
+    else:
+        graph.add_edge(source, target, weight=weight, **attributes)
+        if year is not None:
+            graph[source][target]['_annual_weights'] = {year: weight}
+
+
+def serialize_relationship_years(graph):
+    for _, _, edge in graph.edges(data=True):
+        annual = edge.pop('_annual_weights', None)
+        if annual is not None:
+            edge['year_weights'] = json.dumps(annual, sort_keys=True, separators=(',', ':'), allow_nan=False)
+
 
 def graph_from_rows(node_rows, edge_rows, directed, duplicates='error'):
     g=nx.DiGraph() if directed else nx.Graph()
@@ -37,10 +79,10 @@ def graph_from_rows(node_rows, edge_rows, directed, duplicates='error'):
         except (ValueError, TypeError, OverflowError) as exc:
             raise ValueError(f'Invalid weight at row {index}') from exc
         if not math.isfinite(weight) or weight<0:raise ValueError(f'Invalid weight at row {index}')
-        if g.has_edge(a,b):
-            if duplicates=='error':raise ValueError(f'Duplicate edge at row {index}: {a}, {b}; choose --duplicates sum explicitly if appropriate')
-            g[a][b]['weight']+=weight;continue
-        g.add_edge(a,b,weight=weight,**{str(k):v for k,v in row.items() if k is not None and v is not None})
+        year = edge_year(row.pop('year', None), index)
+        attrs = {str(k): v for k,v in row.items() if k is not None and v is not None}
+        add_relationship(g, a, b, weight, year, attrs, index, duplicates)
+    serialize_relationship_years(g)
     return g
 
 

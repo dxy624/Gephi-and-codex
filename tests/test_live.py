@@ -136,9 +136,10 @@ async def check_mcp(client,tmp_path):
     params=StdioServerParameters(command=sys.executable,args=['-X','utf8',str(ROOT/'bridge/server.py')],env=dict(os.environ,GEPHI3D_URL=client.url,GEPHI3D_TOKEN_FILE=str(client.token_file)))
     async with stdio_client(params) as (reader,writer):
         async with ClientSession(reader,writer) as session:
-            await session.initialize();listed=await session.list_tools();assert len(listed.tools)==32
+            await session.initialize();listed=await session.list_tools();assert len(listed.tools)==36
             assert {'gephi3d_import_graph', 'gephi3d_auto_draw', 'gephi3d_geography', 'gephi3d_supply_chain_map', 'gephi3d_export_paper',
-                    'gephi3d_layer_visibility', 'gephi3d_node_colors', 'gephi3d_paper_legend'} <= {
+                    'gephi3d_layer_visibility', 'gephi3d_node_colors', 'gephi3d_paper_legend', 'gephi3d_supply_scope',
+                    'gephi3d_clear_scope_block', 'gephi3d_figure_preset', 'gephi3d_years'} <= {
                 tool.name for tool in listed.tools
             }
             result=await session.call_tool('gephi3d_status',{});assert not result.is_error
@@ -152,6 +153,7 @@ async def check_mcp(client,tmp_path):
             assert output.with_suffix('.pdf').read_bytes().startswith(b'%PDF-') and Path(str(output)+'.scene.json').is_file()
             imported = await check_api_import(session,client,tmp_path,w)
             await check_supply_chain_map(session, client, tmp_path)
+            await check_supply_years(session, tmp_path)
             return imported
 
 
@@ -320,3 +322,47 @@ async def check_api_import(session,client,tmp_path,previous):
     assert not result.is_error,result
     assert output.is_file() and output.with_suffix('.pdf').is_file()
     return project,client.command('save_scene',w)['scene']
+
+
+async def check_supply_years(session, tmp_path):
+    async def call(tool_name, **options):
+        result = await session.call_tool(tool_name, options)
+        assert not result.is_error, result.content
+        return json.loads(result.content[0].text)
+
+    graph = nx.DiGraph()
+    for index, firm in enumerate(('A', 'B', 'C', 'D', 'E')):
+        graph.add_node(firm, community=firm, viz={'position': {
+            'x': float(160 * (index % 3)), 'y': float(140 * (index // 3)), 'z': float(45 * index),
+        }})
+    for source, target, weights in (
+        ('B', 'A', {2020: 2, 2021: 4}), ('C', 'B', {2020: 3}),
+        ('D', 'A', {2021: 7}), ('E', 'D', {2020: 1}),
+    ):
+        graph.add_edge(source, target, weight=sum(weights.values()), year_weights=json.dumps(weights))
+    fixture = tmp_path/'synthetic-annual.gexf'
+    nx.write_gexf(graph, fixture)
+    state = (await call('gephi3d_import_graph', path=str(fixture), synthetic=True))['scene']
+    w = state['workspace_id']
+    assert state['years']['available'] == [2020, 2021]
+    await call('gephi3d_filter', workspace_id=w, community='A')
+    scope = (await call('gephi3d_supply_scope', workspace_id=w, direction='upstream',
+                        hops=2, roots=['A']))['scene']
+    assert scope['visible_nodes'] == 1 and scope['supply_scope']['blocked'] == {'community': 4}
+    await call('gephi3d_clear_scope_block', workspace_id=w, criterion='community')
+    await call('gephi3d_style', workspace_id=w, edge_width=2)
+    await call('gephi3d_figure_preset', workspace_id=w, name='复用预设', action='save')
+    await call('gephi3d_figure_preset', workspace_id=w, name='链主关系图')
+    restored = (await call('gephi3d_figure_preset', workspace_id=w, name='复用预设'))['scene']
+    assert restored['style']['edge_width'] == 2 and restored['selection'] == ['A']
+    state = (await call('gephi3d_years', workspace_id=w, year=2021, reference=2020))['scene']
+    assert (state['visible_nodes'], state['visible_edges']) == (4, 3)
+    assert state['years']['comparison'] == {'added': 1, 'removed': 1, 'same': 1}
+    output = tmp_path/'annual-comparison.svg'
+    await call('gephi3d_export_paper', workspace_id=w, path=str(output))
+    svg = ET.parse(output)
+    meta = json.loads(svg.find(".//*[@id='network-view']").text)
+    assert meta['filters']['neighbor_roots'] == ['A'] and meta['years']['current'] == 2021
+    ns = {'s': 'http://www.w3.org/2000/svg'}
+    assert svg.find(".//s:path[@data-year-status='removed']", ns).get('stroke') == '#b43e2b'
+    assert svg.find(".//s:path[@data-year-status='added']", ns).get('stroke') == '#187544'

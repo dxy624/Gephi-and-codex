@@ -10,6 +10,7 @@ import java.util.Map;
 final class GeoLayer {
     String source;
     String direction;
+    String locationReference;
     List<double[][][]> polygons;
     List<double[][]> lines;
     List<City> cities;

@@ -33,6 +33,7 @@ description: 通过插件接口用自然语言控制 Gephi 3D Explorer，生成�
 - neighbors 为无向 h 阶邻接；path 为按边数的最短路径，默认尊重有向边。含源节点的高亮数量与其他邻居数分开说明。
 - 高亮、隔离和筛选只影响显示；clear_highlight 保留属性筛选，filter 默认值恢复全部。layer 按属性映射 Z 轴，固定节点保持不动；分层后布局仅优化层内位置。
 - 0.1.7+ 的 `view_controls` 支持城市、企业与一/两阶邻居筛选。用 `gephi3d_select` 选中心企业，再用 `gephi3d_filter(hops=1)` 看直接关系；除非用户要求同时限制其他条件，企业名称、社区等条件留空以保留上下游。用 `gephi3d_layer_visibility` 管理隐藏层、`gephi3d_node_colors` 按字段配色、`gephi3d_paper_legend` 调整图例。
+- 0.1.8+ 查看供应链时用 `gephi3d_supply_scope` 明确供应商、客户或双向及阶数，读取地图覆盖和挡住结果的筛选项。仅在需要时清除指定条件。通过 `gephi3d_figure_preset` 复用工程样式，`gephi3d_years` 根据边上的年度记录切换或对比。缺年度数据时从原关系表重新导入，勿推断年份。
 - bookmark 保存或恢复观察角度；history 保留最近 15 个场景命令，鼠标相机拖动不逐帧进入历史。
 
 ## 保存与结果检查

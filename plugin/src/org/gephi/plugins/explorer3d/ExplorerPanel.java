@@ -52,7 +52,8 @@ public final class ExplorerPanel extends TopComponent {
         edgeArrows.setToolTipText("显示或隐藏有向边的箭头，适用于普通视图和地理地图");
         geography.setToolTipText("仅切换当前工作区的地图视图；先准备城市匹配和底图");
         geography.addActionListener(event -> {
-            if (!updatingStyleControls && engine.scene() != null) act("geography", "enabled", geography.isSelected());
+            if (!updatingStyleControls && engine.scene() != null) act("geography", "enabled", geography.isSelected(),
+                "width", paperViewWidth(), "height", paperViewHeight());
         });
         JPanel visualControls = new JPanel(new BorderLayout(4, 3));
         visualControls.add(new JLabel("外观"), BorderLayout.WEST);
@@ -70,6 +71,9 @@ public final class ExplorerPanel extends TopComponent {
             Scene scene = engine.requireScene();
             ViewDialogs.legend(this, this, 183, PaperSvg.defaultDirection(scene));
         });
+        button(viewControls, "查看上下游…", () -> SupplyDialogs.scope(this));
+        button(viewControls, "出图预设…", () -> SupplyDialogs.presets(this));
+        button(viewControls, "年份 / 对比…", () -> SupplyDialogs.years(this));
         toggles.add(viewControls);
         visualControls.add(toggles, BorderLayout.SOUTH);
         side.add(visualControls, BorderLayout.NORTH);
@@ -170,7 +174,7 @@ public final class ExplorerPanel extends TopComponent {
     public void refresh(){
         if(!SwingUtilities.isEventDispatchThread()){SwingUtilities.invokeLater(this::refresh);return;}
         Scene s=engine.scene();if(s==null){status.setText("打开一个网络，或生成示例。左拖旋转，右拖平移，滚轮缩放，Ctrl 多选。");properties.setText("Gephi 3D Explorer 0.1 alpha\n\n三维视图独立保存位置。\nAPI: 127.0.0.1:"+ApiServer.port());}
-        else{status.setText("显示 "+s.nodes.stream().filter(s::visible).count()+"/"+s.nodes.size()+" 节点 · "+s.edges.stream().filter(s::visible).count()+"/"+s.edges.size()+" 边 · 布局 "+engine.jobState+" #"+engine.iteration+" · Ctrl 多选");StringBuilder p=new StringBuilder(s.synthetic?"【合成示例，非真实观测】\n\n":"");for(String id:s.selection){try{Scene.Vertex n=s.find(id);p.append(n.label).append("\nID: ").append(n.id).append("\n度数: ").append(n.degree).append("\n固定: ").append(n.pinned).append("\n");n.attributes.forEach((k,v)->p.append(k).append(": ").append(v).append("\n"));p.append("\n");}catch(IllegalArgumentException ignore){}}properties.setText(p.toString());}
+        else{status.setText("显示 "+s.nodes.stream().filter(s::visible).count()+"/"+s.nodes.size()+" 节点 · "+s.edges.stream().filter(s::visible).count()+"/"+s.edges.size()+" 边 · 布局 "+engine.jobState+" #"+engine.iteration+" · Ctrl 多选");StringBuilder p=new StringBuilder(s.synthetic?"【合成示例，非真实观测】\n\n":"");if(s.activeYear!=0)p.append(SupplyDialogs.yearSummary(s)).append("\n\n");if(s.directedScope())p.append(SupplyDialogs.summary(s)).append("\n\n");for(String id:s.selection){try{Scene.Vertex n=s.find(id);p.append(n.label).append("\nID: ").append(n.id).append("\n度数: ").append(n.degree).append("\n固定: ").append(n.pinned).append("\n");n.attributes.forEach((k,v)->p.append(k).append(": ").append(v).append("\n"));p.append("\n");}catch(IllegalArgumentException ignore){}}properties.setText(p.toString());properties.setCaretPosition(0);}
         updatingStyleControls = true;
         styleChoice.setEnabled(s != null);
         edgeArrows.setEnabled(s != null);

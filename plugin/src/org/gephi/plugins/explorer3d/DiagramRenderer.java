@@ -66,10 +66,15 @@ final class DiagramRenderer {
         Node[] projection = new Node[scene.nodes.size()];
         double[] ranks = new double[projection.length];
         double maxWeight = 0;
-        for (Scene.Link edge : scene.edges) maxWeight = Math.max(maxWeight, edge.weight);
+        for (Scene.Link edge : scene.edges) {
+            double value = EdgeYears.weight(scene, edge);
+            if (Double.isFinite(value)) maxWeight = Math.max(maxWeight, value);
+        }
         if (weighted && maxWeight > 0) {
             for (Scene.Link edge : scene.edges) {
-                double weight = Math.max(0, edge.weight) / maxWeight;
+                double value = EdgeYears.weight(scene, edge);
+                if (!Double.isFinite(value)) continue;
+                double weight = Math.max(0, value) / maxWeight;
                 ranks[edge.source] += weight;
                 if (edge.target != edge.source) ranks[edge.target] += weight;
             }
@@ -125,9 +130,9 @@ final class DiagramRenderer {
     }
 
     static EdgeStyle edgeStyle(Scene scene, Projection projection, Scene.Link edge, Node from, Node to) {
-        boolean hot = scene.pathEdges.isEmpty()
+        boolean hot = scene.directedScope() || (scene.pathEdges.isEmpty()
             ? scene.highlight.contains(from.vertex.id) && scene.highlight.contains(to.vertex.id)
-            : scene.pathEdges.contains(edge.id);
+            : scene.pathEdges.contains(edge.id));
         if (projection.classic) {
             int color = hot ? ACCENT : scene.dark ? 0x80a6cc : 0x596673;
             float alpha = hot ? .85f : scene.highlight.isEmpty() ? .25f : .035f;
@@ -137,7 +142,7 @@ final class DiagramRenderer {
         boolean weighted = projection.weighted;
         boolean curved = projection.curved;
         double maxWeight = projection.maxWeight;
-        double relative = maxWeight > 0 ? Math.sqrt(Math.max(0, edge.weight) / maxWeight) : 0;
+        double relative = maxWeight > 0 ? Math.sqrt(Math.max(0, EdgeYears.weight(scene, edge)) / maxWeight) : 0;
         float width = (float) Math.max(.65, Math.min(15, unit * scene.edgeWidth *
             (weighted ? .7 + 5.5 * relative : .55 + 1.9 * relative)));
         float alpha = hot ? .88f : !scene.highlight.isEmpty() ? .09f
@@ -153,7 +158,8 @@ final class DiagramRenderer {
         }
         float arrowLength = scene.showsArrows() && edge.directed
             ? (float) (unit * scene.arrowScale * (7 + 16 * relative)) : 0;
-        return new EdgeStyle(color, alpha, width, curved || (weighted && edge.directed), arrowLength);
+        int comparisonColor = EdgeYears.changeColor(scene, edge, color);
+        return new EdgeStyle(comparisonColor, comparisonColor == color ? alpha : .86f, width, curved || (weighted && edge.directed), arrowLength);
     }
 
     void draw(GL2 gl, Scene scene, int width, int height, GraphRenderer renderer) {
@@ -172,7 +178,7 @@ final class DiagramRenderer {
         for (Scene.Link edge : scene.edges) {
             Node from = projection[edge.source];
             Node to = projection[edge.target];
-            if (from == null || to == null || edge.weight < scene.minWeight) continue;
+            if (from == null || to == null || !scene.passesEdge(edge)) continue;
             EdgeStyle style = edgeStyle(scene, projected, edge, from, to);
             EdgeShape shape = edgeShape(from, to, unit, style);
             if (shape != null) drawEdge(gl, from, to, style, shape);

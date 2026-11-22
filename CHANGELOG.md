@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.8-alpha — 2026-11-22
+
+- Add directed supplier/customer exploration over one or two hops, geographic coverage and filter diagnostics.
+- Add reusable project figure presets and SVG metadata for reproducing the view.
+- Preserve annual relationship records through import and compare two years with added, removed and shared edges.
+- Add MCP tools for supply-chain scope, clearing a blocking criterion, figure presets and years.
+
 ## v0.1.7-alpha — 2026-11-21
 
 - Add desktop graph filters for node name or code, city, community, minimum degree/weight, and one- or two-hop neighborhoods.
