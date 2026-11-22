@@ -136,7 +136,7 @@ async def check_mcp(client,tmp_path):
     params=StdioServerParameters(command=sys.executable,args=['-X','utf8',str(ROOT/'bridge/server.py')],env=dict(os.environ,GEPHI3D_URL=client.url,GEPHI3D_TOKEN_FILE=str(client.token_file)))
     async with stdio_client(params) as (reader,writer):
         async with ClientSession(reader,writer) as session:
-            await session.initialize();listed=await session.list_tools();assert len(listed.tools)==36
+            await session.initialize();listed=await session.list_tools();assert len(listed.tools)==38
             assert {'gephi3d_import_graph', 'gephi3d_auto_draw', 'gephi3d_geography', 'gephi3d_supply_chain_map', 'gephi3d_export_paper',
                     'gephi3d_layer_visibility', 'gephi3d_node_colors', 'gephi3d_paper_legend', 'gephi3d_supply_scope',
                     'gephi3d_clear_scope_block', 'gephi3d_figure_preset', 'gephi3d_years'} <= {
@@ -197,7 +197,7 @@ async def check_supply_chain_map(session, client, tmp_path):
     assert mapped['geography']['enabled'] and mapped['visible_nodes'] == 3
     await call('gephi3d_select', {'workspace_id': workspace, 'ids': ['001']})
     paper = tmp_path / 'paper.svg'
-    await call('gephi3d_export_paper', {'workspace_id': workspace, 'path': str(paper), 'width_mm': 183})
+    await call('gephi3d_export_paper', {'workspace_id': workspace, 'path': str(paper), 'width_mm': 183, 'options': {'automatic_caption': True}})
     svg = ET.parse(paper)
     ns = {'s': 'http://www.w3.org/2000/svg'}
     assert svg.find('.//s:text[@data-label-for="001"]', ns).get('font-weight') == 'bold'

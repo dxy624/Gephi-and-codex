@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.10-alpha — 2026-11-22
+
+- 整页预览可按毫米设定版面，实时调整节点、线宽、箭头和字号。
+- 支持手动标注重点企业、淡化背景连线，并分别编辑图例和图注。
+- 双年份组图共用视角、节点位置、配色和线宽标尺。
+- 论文图例将两档线宽合为一组，自动图注采用更紧凑的版式。
+- 此版同时包含此前在本地完成的表格自动导入和论文图预览功能。
+
 ## v0.1.8-alpha — 2026-11-22
 
 - Add directed supplier/customer exploration over one or two hops, geographic coverage and filter diagnostics.

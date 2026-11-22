@@ -3,6 +3,7 @@ import argparse
 import csv
 import json
 import math
+import re
 from pathlib import Path
 import networkx as nx
 
@@ -86,11 +87,11 @@ def graph_from_rows(node_rows, edge_rows, directed, duplicates='error'):
     return g
 
 
-def read_sheet_data(book, name, required):
+def read_sheet_data(book, name, required, identifiers=('id', 'source', 'target')):
     if name not in book.sheetnames:
         raise ValueError(f'Worksheet {name!r} not found. Available sheets: {", ".join(book.sheetnames)}')
-    data = iter(book[name].values)
-    header = next(data, ())
+    data = book[name].iter_rows()
+    header = tuple(cell.value for cell in next(data, ()))
     titles = [value for value in header if value is not None]
     if len(titles) != len(set(titles)):
         raise ValueError(f'Worksheet {name!r} has duplicate column names in row 1')
@@ -98,8 +99,18 @@ def read_sheet_data(book, name, required):
     if missing:
         raise ValueError(f'Worksheet {name!r} is missing columns: {", ".join(sorted(missing))}')
     for number, row in enumerate(data, 2):
-        if any(value is not None for value in row):
-            yield f'{number} ({name})', dict(zip(header, row))
+        if any(cell.value is not None for cell in row):
+            yield f'{number} ({name})', {key: formatted_cell(cell) if key in identifiers else cell.value
+                                        for key, cell in zip(header, row)}
+
+
+def formatted_cell(cell):
+    value = cell.value
+    fmt = getattr(cell, 'number_format', None)
+    if (isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) and
+        value >= 0 and int(value) == value and fmt and re.fullmatch(r'0{2,}', fmt)):
+        return str(int(value)).zfill(len(fmt))
+    return value
 
 
 def graph_from_workbook(path, directed, node_sheet='节点表', edge_sheet='连接表'):

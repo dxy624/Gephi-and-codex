@@ -14,12 +14,14 @@ import errno
 from zipfile import ZipFile
 
 ROOT = Path(__file__).resolve().parents[1]
-MODULE_VERSION = '0.1.8'
-RELEASE_TAG = 'v0.1.8-alpha'
+MODULE_VERSION = '0.1.10'
+RELEASE_TAG = 'v0.1.10-alpha'
 NBM = ROOT / 'dist' / f'gephi-3d-explorer-{MODULE_VERSION}.nbm'
 MODULE = 'org-gephi-plugins-explorer3d'
 # JAR checksums from the previous public installers.
 PREVIOUS_DESKTOP_MODULES = {
+    '15eddec82c4bf80652dcfe07579ab746fc8e1fea430fed224203c61dd5babe0c',  # 0.1.8
+    'be21450708dff879359e0fd153871f55a43c18499a92c1bd89bc08ff74f813cf',  # 0.1.9
     'c3f5b3ded2f6b79ca103a3596d8cbbb5fc3b6280517f507f71b3747f181ace29',  # 0.1.7
     '7bf361320c9d1c4914baadfb2d45026835bc023dcda7644299058b48eb28ada6',  # 0.1.6
     'a43a2510acfba5d03d77a0696c9cd569668cf049fb6e7854a2dbd8f6492a86e8',  # 0.1.3
@@ -88,7 +90,7 @@ def running_instance(state,port):
                     version = tuple(int(part) for part in health['version'].removesuffix('-alpha').split('.'))
                     minimum = tuple(int(part) for part in MODULE_VERSION.split('.'))
                     if version < minimum or not {'geography', 'arrow_style', 'paper_svg', 'view_controls',
-                                                 'supply_scope', 'figure_presets', 'edge_years'}.issubset(health.get('capabilities', [])):
+                                                 'supply_scope', 'figure_presets', 'edge_years', 'paper_editor'}.issubset(health.get('capabilities', [])):
                         raise RuntimeError('This is an older Gephi 3D instance. Save your work and close it normally, then launch the updated version; no process was stopped.')
                     return True
         except (OSError,ValueError): pass

@@ -7,7 +7,7 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from gephi3d_client import Gephi3D
 
-mcp = MCPServer('gephi-3d', version='0.1.8-alpha', instructions='Use the local Gephi plugin API for graph generation, import, exploration and export. These tools require no desktop input. Report connection/capability failures; do not fall back to desktop control unless the user explicitly requests interface operation. Inspect rendering through plugin exports, not desktop screenshots.')
+mcp = MCPServer('gephi-3d', version='0.1.9-alpha', instructions='Use the local Gephi plugin API for graph generation, import, exploration and export. These tools require no desktop input. Report connection/capability failures; do not fall back to desktop control unless the user explicitly requests interface operation. Inspect rendering through plugin exports, not desktop screenshots.')
 client = Gephi3D()
 
 def gephi_tool():
@@ -35,12 +35,23 @@ def gephi3d_import_graph(path: str, synthetic: bool=False) -> dict:
 def gephi3d_auto_draw(path: str | None = None, directed: bool | None = None,
                      nodes: int = 60, communities: int = 3, seed: int = 42,
                      node_sheet: str = '节点表', edge_sheet: str = '连接表',
-                     png_path: str | None = None, synthetic: bool = False) -> dict:
-    """In one call: read local XLSX or GEXF, create a new workspace, run 3D layout, color by community, set edge width by weight and show arrowheads on directed edges. Open the rotatable view and optionally export an absolute PNG path. Excel needs explicit directed=True or False; existing GEXF directions are preserved. Omit path for a synthetic directed, weighted community demo. Use only when an example is requested or an input path is supplied. Requires plugin 0.1.2+."""
+                     png_path: str | None = None, synthetic: bool = False,
+                     source_column: str | None = None, target_column: str | None = None,
+                     duplicates: str = 'error', roots: list[str] | None = None, direction: str | None = None,
+                     hops: int = 1, year: int = 0, reference: int = 0,
+                     min_weight: float | None = None, svg_path: str | None = None) -> dict:
+    """Draw local XLSX, CSV, DTA or GEXF in a new workspace. Supplier/customer columns imply supplier→customer; source/target need explicit directed. Keep identifiers as text. Set roots, direction (upstream/downstream/both), hops (1/2) and optional year/reference for a supply-chain view with 0.1.8+. Use duplicates='sum' only when explicitly appropriate. Report visible counts and active filters. Optional new absolute PNG/SVG outputs. The map is a separate, optional workflow. Omit path only for a requested synthetic demo."""
     from auto_draw import draw
 
     return draw(client, path, directed=directed, nodes=nodes, communities=communities, seed=seed,
-                node_sheet=node_sheet, edge_sheet=edge_sheet, png_path=png_path, synthetic=synthetic)
+                node_sheet=node_sheet, edge_sheet=edge_sheet, png_path=png_path, synthetic=synthetic,
+                source_column=source_column, target_column=target_column, duplicates=duplicates, roots=roots,
+                direction=direction, hops=hops, year=year, reference=reference, min_weight=min_weight, svg_path=svg_path)
+
+@gephi_tool()
+def gephi3d_check_connection() -> dict:
+    """Read-only check of configured Gephi startup mode, port, plugin capabilities, and workspace. Reports a concrete next step when disconnected. Does not open, generate or import anything."""
+    return client.diagnose()
 
 @gephi_tool()
 def gephi3d_status() -> dict:
@@ -265,12 +276,31 @@ def gephi3d_export(workspace_id: int, path: str, width: int=6000, height: int=40
 @gephi_tool()
 def gephi3d_export_paper(workspace_id: int, path: str, width_mm: float = 183,
                          title: str = '', direction: str = '',
-                         width: int = 1200, height: int = 800) -> dict:
-    """Export editable SVG with a compact legend and emphasis on selected nodes and their connections. The export can fit the focused group without moving the live camera. Set paper width in mm. The optional direction describes the arrow meaning. Use a new absolute .svg path and pause the layout first. SVG requires plugin 0.1.5+; automatic focus styling and framing require 0.1.6+."""
-    if 'paper_svg' not in client.state().get('capabilities', []):
+                         width: int = 1200, height: int = 800,
+                         options: dict | None = None) -> dict:
+    """Export editable paper SVG to a new absolute path. Give both left_year and right_year in options for two panels with common coordinates, camera and scales. Other options include marks (node ID to label, blank to use original), caption, automatic_caption, weight_meaning, font_points, node_scale, edge_scale, arrow_scale, arrows and context_opacity (0–1). Pause the layout first. Extended options need plugin 0.1.9+."""
+    capabilities = client.state().get('capabilities', [])
+    if 'paper_svg' not in capabilities:
         raise ToolError('The connected Gephi plugin does not support editable paper export. Install Gephi 3D Explorer 0.1.5 or later.')
+    if options is not None and 'paper_editor' not in capabilities:
+        raise ToolError('Paper figure options require Gephi 3D Explorer 0.1.9 or later.')
+    extended = {} if options is None else {'options': options}
     return client.command('export_svg', workspace_id, path=path, width_mm=width_mm,
-                          title=title, direction=direction, width=width, height=height)
+                          title=title, direction=direction, width=width, height=height, **extended)
+
+
+@gephi_tool()
+def gephi3d_preview_paper(workspace_id: int, path: str, width_mm: float = 183,
+                          title: str = '', direction: str = '', width: int = 1200,
+                          height: int = 800, preview_width: int = 1000,
+                          options: dict | None = None) -> dict:
+    """Preview the whole paper layout, including legend and caption, as PNG. Supports the same options as gephi3d_export_paper. Use a new absolute PNG path. Requires Gephi 3D Explorer 0.1.9+."""
+    if 'paper_editor' not in client.state().get('capabilities', []):
+        raise ToolError('Paper figure preview requires Gephi 3D Explorer 0.1.9 or later.')
+    extended = {} if options is None else {'options': options}
+    return client.command('preview_paper', workspace_id, path=path, width_mm=width_mm,
+                          title=title, direction=direction, width=width, height=height,
+                          preview_width=preview_width, **extended)
 
 
 @gephi_tool()

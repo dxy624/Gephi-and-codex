@@ -139,6 +139,13 @@ final class ViewDialogs {
         long revision = scene.revision;
         List<PaperSvg.Key> keys = PaperSvg.legendItems(panel.engine.paperSnapshot(workspace),
             panel.paperViewWidth(), panel.paperViewHeight(), widthMm, direction);
+        Scene draft = scene.copy();
+        if (editLegend(parent, draft, keys))
+            panel.actIn(workspace, revision, "paper_legend", "position", draft.legendPosition,
+                "hidden", draft.hiddenLegendItems, "labels", draft.legendLabels);
+    }
+
+    static boolean editLegend(Component parent, Scene scene, List<PaperSvg.Key> keys) {
         Object[][] rows = new Object[keys.size()][3];
         for (int i = 0; i < keys.size(); i++) {
             PaperSvg.Key key = keys.get(i);
@@ -166,7 +173,11 @@ final class ViewDialogs {
         String[] actions = {"保存图例设置", "恢复默认", "取消"};
         int action = JOptionPane.showOptionDialog(parent, content, "论文图例", JOptionPane.DEFAULT_OPTION,
             JOptionPane.PLAIN_MESSAGE, null, actions, actions[0]);
-        if (action == 1) panel.actIn(workspace, revision, "paper_legend", "position", "bottom", "hidden", List.of(), "labels", Map.of());
+        if (action == 1) {
+            scene.legendPosition = "bottom";
+            scene.hiddenLegendItems.clear();
+            scene.legendLabels.clear();
+        }
         if (action == 0) {
             stopEditing(table);
             var hidden = new LinkedHashSet<>(scene.hiddenLegendItems);
@@ -179,9 +190,11 @@ final class ViewDialogs {
                 if (label.isEmpty() || label.equals(key.text())) labels.remove(key.id());
                 else labels.put(key.id(), label);
             }
-            panel.actIn(workspace, revision, "paper_legend", "position", placement.getSelectedIndex() == 1 ? "top" : "bottom",
-                "hidden", hidden, "labels", labels);
+            scene.legendPosition = placement.getSelectedIndex() == 1 ? "top" : "bottom";
+            scene.hiddenLegendItems = hidden;
+            scene.legendLabels = labels;
         }
+        return action == 0 || action == 1;
     }
 
     private static String fieldName(String field) {

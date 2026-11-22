@@ -4,20 +4,13 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 import csv
 import json
-from math import asin, cos, isfinite, radians, sin, sqrt
+from math import asin, cos, radians, sin, sqrt
 from pathlib import Path
-import re
-import sys
 from tempfile import TemporaryDirectory
 
 import networkx as nx
 
-from auto_draw import draw, output_path
-
-
-def city_code(value):
-    match = re.fullmatch(r'([0-9]{6})(?:\.0+)?', str(value).strip())
-    return match[1] if match else None
+from relationship_table import city_code, read_network
 
 
 # Spherical Albers for a China-wide view. One projection is applied to both datasets.
@@ -100,85 +93,6 @@ def map_geometry(path):
     return polygons, lines, points
 
 
-def edge_table(path):
-    if path.suffix.lower() == '.csv':
-        with path.open(encoding='utf-8-sig', newline='') as stream:
-            yield from csv.DictReader(stream)
-        return
-    try:
-        import pandas as pd
-    except ImportError as exc:
-        raise RuntimeError('Install the updated bridge requirements for .dta support, or convert the same columns to CSV') from exc
-    with pd.read_stata(path, convert_categoricals=False, chunksize=20_000) as reader:
-        for chunk in reader:
-            yield from chunk.astype(object).where(chunk.notna(), None).to_dict('records')
-
-
-def read_network(path):
-    suffix = path.suffix.lower()
-    if suffix == '.gexf':
-        return nx.read_gexf(path)
-    if suffix not in {'.csv', '.dta'}:
-        raise ValueError('Supply chain data must be a local GEXF, CSV or Stata .dta file')
-    root = str(Path(__file__).resolve().parents[1])
-    if root not in sys.path:
-        sys.path.insert(0, root)
-    from scripts.tables_to_gexf import add_relationship, edge_year, serialize_relationship_years
-
-    graph = nx.DiGraph()
-    city_records = {}
-    for line, row in enumerate(edge_table(path), 2):
-        if 'source' not in row and {'supplier_symbol', 'customer_symbol'} <= row.keys():
-            row = {**row, 'source': row['supplier_symbol'], 'target': row['customer_symbol'],
-                   'source_city_code': row.get('supplier_city_code'), 'target_city_code': row.get('customer_city_code')}
-        if not {'source', 'target', 'source_city_code', 'target_city_code'} <= row.keys():
-            raise ValueError('The edge table needs source, target, source_city_code and target_city_code')
-        year = edge_year(row.get('year'), line)
-        ids = []
-        for side in ('source', 'target'):
-            if row[side] is None or not str(row[side]).strip():
-                raise ValueError(f'Missing firm ID at row {line}')
-            value = row[side]
-            firm = str(int(value) if isinstance(value, float) and value.is_integer() else value).strip()
-            ids.append(firm)
-            if firm not in graph:
-                graph.add_node(firm, label=firm)
-            node = graph.nodes[firm]
-            for column, attribute in ((f'{side}_city_code', 'city_code'), (f'{side}_name', 'label'),
-                                      (f'{side}_community', 'community')):
-                value = row.get(column)
-                if value is None or not str(value).strip():
-                    continue
-                value = (city_code(value) or str(value).strip()) if attribute == 'city_code' else str(value).strip()
-                existing = node.get(attribute)
-                if attribute == 'city_code' and year is not None:
-                    recorded = city_records.get(firm)
-                    if recorded is None or year > recorded:
-                        city_records[firm] = year
-                        node[attribute] = value
-                    elif year == recorded and existing != value:
-                        raise ValueError(f'Conflicting city code for {firm} in {year} at row {line}')
-                    continue
-                if existing is not None and existing != value and not (attribute == 'label' and existing == firm):
-                    raise ValueError(f'Conflicting {attribute} for {firm} at row {line}; choose a period or location definition first')
-                node[attribute] = value
-        weight = float(1 if row.get('weight') in {None, ''} else row['weight'])
-        if not isfinite(weight) or weight < 0:
-            raise ValueError(f'Invalid weight at row {line}')
-        try:
-            add_relationship(graph, *ids, weight, year, {}, line)
-        except ValueError as exc:
-            if graph.has_edge(*ids) and str(exc).startswith('Duplicate edge'):
-                raise ValueError(f'Duplicate firm pair at row {line}; choose a year or aggregate duplicate rows first') from exc
-            raise
-        if len(graph) > 10_000 or graph.number_of_edges() > 100_000:
-            raise ValueError('Network exceeds 10000 firms or 100000 links')
-    serialize_relationship_years(graph)
-    if city_records:
-        graph.graph['city_reference'] = '最近一次有记录的城市代码（各年共用）'
-    return graph
-
-
 def prepare_geography(graph, boundary, city_table, leader_ids, source, city_attribute='city_code'):
     if not 1 <= len(graph) <= 10_000 or graph.number_of_edges() > 100_000:
         raise ValueError('Network needs 1–10000 firms and at most 100000 links')
@@ -235,6 +149,8 @@ def prepare_geography(graph, boundary, city_table, leader_ids, source, city_attr
 
 def draw_supply_chain(client, path, basemap, city_table, leader_ids, basemap_source,
                       enabled=False, city_attribute='city_code', png_path=None, synthetic=False):
+    from auto_draw import draw, input_summary, output_path, view_summary
+
     files = tuple(Path(p) for p in (path, basemap, city_table))
     if any(not f.is_absolute() or not f.is_file() for f in files):
         raise ValueError('Supply chain data, basemap and city table must be existing absolute paths')
@@ -259,6 +175,9 @@ def draw_supply_chain(client, path, basemap, city_table, leader_ids, basemap_sou
         workspace = result['workspace_id']
         layout = client.command('geography', workspace, map_path=str(prepared), enabled=enabled)
     result['geography'] = {**report, 'enabled': layout['scene']['geography']['enabled']}
+    result['view'] = view_summary(layout['scene'])
+    result['input_name'] = network.name
+    result['input_table'] = input_summary(graph)
     if image is not None:
         result['png_path'] = client.command('export_png', workspace, path=str(image), width=1800, height=1400)['path']
     return result

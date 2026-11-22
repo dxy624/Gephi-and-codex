@@ -1,7 +1,7 @@
 {
-  "release": "v0.1.8-alpha",
+  "release": "v0.1.10-alpha",
   "platform": "Windows / Gephi 0.11.4 / Java 17 / Python 3.12",
-  "bundled_module": "0.1.8",
+  "bundled_module": "0.1.10",
   "desktop_default_port": 8183,
   "live_test_port": 8184,
   "scope": [
@@ -10,7 +10,7 @@
     "upgrade from the previous published desktop module with backup",
     "directed arrow visibility, weighted arrowhead size and line width",
     "isolated runtime and project reopen",
-    "36 MCP tools",
+    "38 MCP tools",
     "synthetic graph and GEXF import",
     "Stata DTA city-code matching",
     "optional geographic mode and camera restore",
@@ -18,6 +18,7 @@
     "manifest-only release ZIP and NBM verification",
     "editable SVG, compact legend, selected nodes, incident links and missing map locations",
     "filter dialog, neighborhood scope, layer visibility, field colors and SVG legend settings",
-    "directed supply scope, filter diagnostics, figure presets, edge-year comparisons and SVG view metadata"
+    "directed supply scope, filter diagnostics, figure presets, edge-year comparisons and SVG view metadata",
+    "paper preview, editable legend, manual labels and shared scales in a two-year figure"
   ]
 }
