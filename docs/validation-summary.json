@@ -1,7 +1,7 @@
 {
-  "release": "v0.1.12-alpha",
+  "release": "v0.1.13-alpha",
   "platform": "Windows / Gephi 0.11.4 / Java 17 / Python 3.12",
-  "bundled_module": "0.1.12",
+  "bundled_module": "0.1.13",
   "desktop_default_port": 8183,
   "live_test_port": 8184,
   "scope": [
@@ -20,6 +20,7 @@
     "filter dialog, neighborhood scope, layer visibility, field colors and SVG legend settings",
     "directed supply scope, filter diagnostics, figure presets, edge-year comparisons and SVG view metadata",
     "paper preview, editable legend, manual labels and shared scales in a two-year figure",
-    "paper appearance, measured margins, grayscale PNG and SVG, matching dashed year legend"
+    "paper appearance, measured margins, grayscale PNG and SVG, matching dashed year legend",
+    "custom 2\u20134 panel figures, shared three-year scales, filtered counts, embedded PNG and grayscale preview"
   ]
 }

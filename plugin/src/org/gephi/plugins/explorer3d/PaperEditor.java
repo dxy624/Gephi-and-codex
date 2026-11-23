@@ -25,7 +25,7 @@ final class PaperEditor extends JDialog {
     private final int viewWidth, viewHeight;
     private final JTextField title, direction, weightMeaning = new JTextField(18);
     private final JTextArea caption = new JTextArea(4, 18);
-    private final JComboBox<String> mode = new JComboBox<>(new String[]{"当前视图", "双年份并排"});
+    private final JComboBox<String> mode = new JComboBox<>(new String[]{"当前视图", "双年份并排", "自定义组图"});
     private final JComboBox<Integer> leftYear, rightYear;
     private final JComboBox<String> zoom = new JComboBox<>(new String[]{"整页预览", "实际大小（估算）"});
     private final JSpinner width = new JSpinner(new SpinnerNumberModel(183.0, 60.0, 300.0, 1.0));
@@ -40,9 +40,11 @@ final class PaperEditor extends JDialog {
     private final JLabel info = new JLabel("正在准备预览…");
     private final JButton save = new JButton("保存 SVG…"), legend = new JButton("编辑图例…");
     private final JButton annotate = new JButton("重点标注…");
+    private final JButton arrange = new JButton("编排子图…");
     private final Timer timer = new Timer(250, event -> buildPreview());
     private Map<String, String> marks = Map.of();
     private PaperAppearance appearance = PaperAppearance.DEFAULT;
+    private PaperPanels composition;
     private PaperSvg.Document document;
     private int generation;
     private boolean rendering, saving;
@@ -62,11 +64,11 @@ final class PaperEditor extends JDialog {
         direction = new JTextField(PaperSvg.defaultDirection(draft), 18);
         arrows.setSelected(draft.showsArrows());
         Integer[] years = EdgeYears.available(draft).toArray(Integer[]::new);
+        composition = PaperPanelDialog.defaults(years);
         leftYear = new JComboBox<>(years);
         rightYear = new JComboBox<>(years);
         if (years.length < 2) {
             mode.removeItemAt(1);
-            mode.setToolTipText("双年份组图需要至少两个年份的边数据");
         } else {
             int right = draft.activeYear != 0 ? draft.activeYear : years[years.length - 1];
             int left = draft.referenceYear != 0 ? draft.referenceYear
@@ -82,6 +84,16 @@ final class PaperEditor extends JDialog {
         var yearInputs = new JPanel(new java.awt.GridLayout(1, 2, 5, 0));
         yearInputs.add(leftYear); yearInputs.add(rightYear);
         row(form, "左年 / 右年", yearInputs);
+        arrange.setText("编排子图（" + composition.items().size() + "）…");
+        arrange.addActionListener(event -> {
+            var edited = PaperPanelDialog.edit(this, composition, years);
+            if (edited != null) {
+                composition = edited;
+                arrange.setText("编排子图（" + composition.items().size() + "）…");
+                change();
+            }
+        });
+        row(form, "", arrange);
         var sizes = new JPanel(new java.awt.GridLayout(1, 3, 4, 0));
         sizes.add(width);
         sizes.add(action("85", () -> width.setValue(85.0)));
@@ -169,9 +181,10 @@ final class PaperEditor extends JDialog {
     }
 
     private void enableOptions() {
-        boolean paired = mode.getSelectedIndex() == 1;
+        boolean paired = "双年份并排".equals(mode.getSelectedItem());
         leftYear.setEnabled(paired);
         rightYear.setEnabled(paired);
+        arrange.setEnabled("自定义组图".equals(mode.getSelectedItem()));
         context.setEnabled(dim.isSelected());
     }
 
@@ -215,7 +228,8 @@ final class PaperEditor extends JDialog {
     private void buildPreview() {
         if (rendering || !isDisplayable()) return;
         int request = generation;
-        boolean paired = mode.getSelectedIndex() == 1;
+        boolean paired = "双年份并排".equals(mode.getSelectedItem());
+        boolean custom = "自定义组图".equals(mode.getSelectedItem());
         double widthMm = number(width);
         String figureTitle = title.getText(), directionLabel = direction.getText();
         PaperOptions options;
@@ -223,7 +237,8 @@ final class PaperEditor extends JDialog {
             options = new PaperOptions(number(nodeScale), number(edgeScale), number(arrowScale), arrows.isSelected(),
                 number(fontSize), dim.isSelected() ? number(context) / 100 : -1, marks,
                 autoCaption.isSelected(), caption.getText().strip(), weightMeaning.getText().strip(),
-                paired ? (int) leftYear.getSelectedItem() : 0, paired ? (int) rightYear.getSelectedItem() : 0, appearance);
+                paired ? (int) leftYear.getSelectedItem() : 0, paired ? (int) rightYear.getSelectedItem() : 0,
+                appearance, custom ? composition : PaperPanels.NONE);
         } catch (IllegalArgumentException ex) {
             info.setText(ex.getMessage());
             image.setIcon(null);

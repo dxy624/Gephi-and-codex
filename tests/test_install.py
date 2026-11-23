@@ -161,6 +161,6 @@ def test_recognized_old_instance_is_not_reused_or_stopped(tmp_path,monkeypatch):
         with pytest.raises(RuntimeError, match='Save your work and close it normally'):
             running_instance(tmp_path,8183)
         monkeypatch.setattr('urllib.request.urlopen', lambda *a, **k: BytesIO(
-            b'{"success":true,"version":"0.1.12-alpha","capabilities":["geography","arrow_style","paper_svg","view_controls",'
-            b'"supply_scope","figure_presets","edge_years","paper_editor","paper_appearance"]}'))
+            b'{"success":true,"version":"0.1.13-alpha","capabilities":["geography","arrow_style","paper_svg","view_controls",'
+            b'"supply_scope","figure_presets","edge_years","paper_editor","paper_appearance","paper_composition"]}'))
         assert running_instance(tmp_path,8183) is True

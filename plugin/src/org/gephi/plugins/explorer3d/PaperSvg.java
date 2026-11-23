@@ -28,6 +28,7 @@ import org.joml.Vector4f;
 /** Editable 2D artwork projected from a snapshot of the current 3D view. */
 final class PaperSvg {
     private static final String SVG_NS = "http://www.w3.org/2000/svg";
+    private static final String XLINK_NS = "http://www.w3.org/1999/xlink";
     private static final FontRenderContext FONT_CONTEXT = new FontRenderContext(null, true, true);
     private static final Font YAHEI = new Font("Microsoft YaHei", Font.PLAIN, 12);
     private static final Font SIMSUN = new Font("SimSun", Font.PLAIN, 12);
@@ -43,6 +44,18 @@ final class PaperSvg {
     private record PlacedKey(Key key, float x, int row) { }
     private record EdgeScale(float x, int row, List<PlacedKey> keys) { }
     private record LegendLayout(List<PlacedKey> keys, EdgeScale scale, int rows) { }
+    private record Cell(PaperPanels.Panel spec, PaperSvg network, List<PaperPanelData.YearCount> counts,
+                        PaperPanelData.Illustration image) {
+        Map<String, Object> report() {
+            var data = new LinkedHashMap<String, Object>();
+            if (network != null) data.putAll(network.panelMetrics());
+            data.put("type", spec.kind());
+            if (!spec.title().isBlank()) data.put("title", spec.title());
+            if (counts != null) data.put("counts", counts);
+            if (image != null) data.put("image_size", List.of(image.width(), image.height()));
+            return data;
+        }
+    }
     private static final String SCALE_TITLE = "线宽（边权）";
     private static final float LEGEND_TEXT = .95f;
     private static final float CAPTION_TEXT = .9f;
@@ -118,48 +131,79 @@ final class PaperSvg {
         double unitsPerMm = width / (widthMm - 2 * marginMm);
         float paperFont = (float) (unitsPerMm * fontMm);
         float paperPadding = (float) (unitsPerMm * marginMm);
-        int gap = options.paired() ? Math.round(paperFont * 1.8f) : 0;
-        int plotWidth = options.paired() ? (width - gap) / 2 : width;
-        int plotHeight = options.paired() ? Math.min(height, (int) (width * .45)) : height;
-        if (options.paired() && (plotWidth < 100 || plotHeight < 140))
+        boolean custom = options.composition().enabled();
+        boolean composed = custom || options.paired();
+        List<PaperPanels.Panel> specs = custom ? options.composition().items() : options.paired()
+            ? List.of(PaperPanels.Panel.network(options.leftYear()), PaperPanels.Panel.network(options.rightYear())) : List.of();
+        int columns = custom ? options.composition().columns() : options.paired() ? 2 : 1;
+        int gap = composed ? Math.round(paperFont * (custom ? 2.05f : 1.8f)) : 0;
+        int plotWidth = (width - (columns - 1) * gap) / columns;
+        int plotHeight = custom ? Math.min(height, Math.round(plotWidth * .8f))
+            : options.paired() ? Math.min(height, (int) (width * .45)) : height;
+        boolean tooSmall = custom ? plotWidth < Math.max(100, paperFont * 7.5f) || plotHeight < Math.max(110, paperFont * 6)
+            : options.paired() && (plotWidth < 100 || plotHeight < 140);
+        if (tooSmall)
             throw new IllegalArgumentException("组图版面过窄，请加宽成图或减小字号");
-        Scene rightScene = null;
-        if (options.paired()) {
-            var years = EdgeYears.available(scene);
-            if (!years.contains(options.leftYear()) || !years.contains(options.rightYear()))
+        var years = composed ? EdgeYears.available(scene) : new java.util.TreeSet<Integer>();
+        var views = new LinkedHashMap<Integer, Scene>();
+        for (var spec : specs) if (spec.type() == PaperPanels.Type.NETWORK) {
+            if (spec.year() != 0 && !years.contains(spec.year()))
                 throw new IllegalArgumentException("所选年份缺少边数据。可用年份 " + years);
-            rightScene = scene.copy();
-            scene.activeYear = options.leftYear();
-            rightScene.activeYear = options.rightYear();
-            scene.referenceYear = rightScene.referenceYear = 0;
-            scene.refreshViewCaches();
-            rightScene.refreshViewCaches();
-            var right = rightScene;
-            var positions = scene.nodes.stream().filter(n -> scene.visible(n) || right.visible(n))
-                .map(n -> position(scene, n)).toList();
-            var matrix = GraphRenderer.matrix(scene, plotWidth, plotHeight);
-            if (outside(positions, matrix, plotWidth, plotHeight, Math.min(paperFont * 1.4f, plotWidth * .12f)))
-                GraphRenderer.frame(scene, positions, plotWidth, plotHeight);
-            rightScene.restoreCamera(scene.cameraValues());
+            views.computeIfAbsent(spec.year(), year -> year == 0 ? scene : annualScene(scene, year));
         }
-        if (options.paired()) {
-            double panelUnits = (plotWidth * 2 + gap) / (widthMm - 2 * marginMm);
+        int[] sharedYears = new int[0];
+        if (views.size() > 1) {
+            var positions = scene.nodes.stream().filter(n -> views.values().stream().anyMatch(view -> view.visible(n)))
+                .map(n -> position(scene, n)).toList();
+            var common = views.values().iterator().next();
+            var matrix = GraphRenderer.matrix(common, plotWidth, plotHeight);
+            if (outside(positions, matrix, plotWidth, plotHeight, Math.min(paperFont * 1.4f, plotWidth * .12f)))
+                GraphRenderer.frame(common, positions, plotWidth, plotHeight);
+            var camera = common.cameraValues();
+            views.values().forEach(view -> view.restoreCamera(camera));
+            var periods = new LinkedHashSet<Integer>();
+            for (Scene view : views.values()) {
+                periods.add(view.activeYear);
+                if (view.referenceYear != 0) periods.add(view.referenceYear);
+            }
+            sharedYears = periods.stream().mapToInt(Integer::intValue).toArray();
+        }
+        if (composed) {
+            double panelUnits = (plotWidth * columns + (columns - 1) * gap) / (widthMm - 2 * marginMm);
             paperFont = (float) (panelUnits * fontMm);
             paperPadding = (float) (panelUnits * marginMm);
         }
-        var first = new PaperSvg(scene, plotWidth, plotHeight, paperFont, paperPadding, title, direction, true, options);
-        var second = rightScene == null ? null
-            : new PaperSvg(rightScene, plotWidth, plotHeight, paperFont, paperPadding, title, direction, true, options);
+        var networks = new LinkedHashMap<Integer, PaperSvg>();
+        for (var view : views.entrySet())
+            networks.put(view.getKey(), new PaperSvg(view.getValue(), plotWidth, plotHeight, paperFont, paperPadding,
+                title, direction, true, options, sharedYears));
+        var counts = specs.stream().anyMatch(spec -> spec.type() == PaperPanels.Type.COUNTS)
+            ? PaperPanelData.counts(scene, specs, years) : null;
+        var cells = new ArrayList<Cell>();
+        for (var spec : specs) cells.add(switch (spec.type()) {
+            case NETWORK -> new Cell(spec, networks.get(spec.year()), null, null);
+            case COUNTS -> new Cell(spec, null, counts, null);
+            case IMAGE -> new Cell(spec, null, null, PaperPanelData.image(spec.path(), options.appearance()));
+        });
+        var first = composed ? networks.values().iterator().next()
+            : new PaperSvg(scene, plotWidth, plotHeight, paperFont, paperPadding, title, direction, true, options, sharedYears);
         var buffer = new StringWriter();
         try {
-            return first.write(XMLOutputFactory.newFactory().createXMLStreamWriter(buffer), buffer, widthMm, second, gap);
+            return first.write(XMLOutputFactory.newFactory().createXMLStreamWriter(buffer), buffer, widthMm, cells, columns, gap);
         } catch (XMLStreamException ex) {
             throw new IllegalStateException("SVG composition failed: " + ex.getMessage(), ex);
         }
     }
 
+    private static Scene annualScene(Scene scene, int year) {
+        var view = scene.copy();
+        view.activeYear = year;
+        view.referenceYear = 0;
+        return view;
+    }
+
     private PaperSvg(Scene scene, int width, int height, float paperFont, float paperPadding, String title, String direction,
-                     boolean includeLabels, PaperOptions options) {
+                     boolean includeLabels, PaperOptions options, int[] sharedYears) {
         this.scene = scene;
         this.width = width;
         this.height = height;
@@ -180,8 +224,8 @@ final class PaperSvg {
         labeledIds = new LinkedHashSet<>(priorityIds);
         labeledIds.addAll(options.marks().keySet());
         focusActive = !priorityIds.isEmpty() || !scene.highlight.isEmpty() || !scene.pathEdges.isEmpty();
-        if (!options.paired() && (!labeledIds.isEmpty() || focusActive)) frameFocus();
-        projection = DiagramRenderer.project(scene, width, height, true, options.leftYear(), options.rightYear());
+        if (sharedYears.length == 0 && (!labeledIds.isEmpty() || focusActive)) frameFocus();
+        projection = DiagramRenderer.project(scene, width, height, true, sharedYears);
         visible = Arrays.stream(projection.nodes()).filter(node -> node != null &&
             node.x() + node.radius() >= 0 && node.x() - node.radius() <= width &&
             node.y() + node.radius() >= 0 && node.y() - node.radius() <= height)
@@ -251,7 +295,7 @@ final class PaperSvg {
     static List<Key> legendItems(Scene snapshot, int width, int height, double widthMm, String direction) {
         float size = (float) (width * 6.8 * 25.4 / (widthMm * 72));
         return List.copyOf(new PaperSvg(snapshot, width, height, size, size * 1.2f, "", direction, false,
-            PaperOptions.DEFAULT).keys);
+            PaperOptions.DEFAULT, new int[0]).keys);
     }
 
     private void prepareEdges() {
@@ -508,10 +552,10 @@ final class PaperSvg {
         return key.id.equals("weight_low") || key.id.equals("weight_high");
     }
 
-    private List<Key> combinedLegend(PaperSvg second) {
-        if (second == null) return List.copyOf(keys);
+    private List<Key> combinedLegend(List<PaperSvg> networks) {
+        if (networks.size() < 2) return List.copyOf(keys);
         var combined = new LinkedHashMap<String, Key>();
-        for (PaperSvg panel : List.of(this, second)) for (Key key : panel.keys) {
+        for (PaperSvg panel : networks) for (Key key : panel.keys) {
             if (!weightKey(key)) combined.putIfAbsent(key.id, key);
         }
         var categories = combined.values().stream()
@@ -529,7 +573,7 @@ final class PaperSvg {
         if (!projection.classic()) {
             for (boolean focus : new boolean[]{true, false}) {
                 var weights = new java.util.TreeMap<Double, Edge>();
-                for (PaperSvg panel : List.of(this, second)) for (Edge edge : panel.edges)
+                for (PaperSvg panel : networks) for (Edge edge : panel.edges)
                     if (edge.focus == focus) weights.put(EdgeYears.weight(panel.scene, edge.link), edge);
                 if (weights.size() > 1) {
                     for (var example : List.of(weights.firstEntry(), weights.lastEntry())) {
@@ -544,7 +588,7 @@ final class PaperSvg {
         return List.copyOf(combined.values());
     }
 
-    private List<String> caption(PaperSvg second, int contentWidth) {
+    private List<String> caption(List<PaperSvg> networks, boolean composed, int contentWidth) {
         var description = new ArrayList<String>();
         if (options.automaticCaption()) {
             var scope = new ArrayList<String>();
@@ -553,15 +597,15 @@ final class PaperSvg {
                 scope.add(scene.neighborhoodHops + " 阶" + SupplyScope.directionLabel(scene.neighborhoodDirection));
             }
             if (scene.minWeight > -1e100) scope.add("边权 ≥ " + weight(scene.minWeight));
-            if (second == null) {
+            if (!composed) {
                 if (scene.activeYear != 0) scope.add(scene.referenceYear == 0 ? scene.activeYear + " 年"
                     : scene.referenceYear + " → " + scene.activeYear + " 年");
                 scope.add(figureCounts());
                 description.add(String.join(" · ", scope));
             } else {
                 if (!scope.isEmpty()) description.add(String.join(" · ", scope));
-                for (PaperSvg panel : List.of(this, second)) {
-                    description.add(panel.scene.activeYear + " 年 · " + panel.figureCounts()
+                for (PaperSvg panel : networks) {
+                    description.add(panel.periodTitle() + " · " + panel.figureCounts()
                         + (scene.geographyEnabled ? " · " + panel.mapCoverage() + panel.unlocatedNote() : ""));
                 }
             }
@@ -570,10 +614,10 @@ final class PaperSvg {
                 String reference = scene.geography.locationReference;
                 if (scene.activeYear != 0 && reference != null && !reference.isBlank() && !mapNote.contains(reference))
                     mapNote += " · " + reference;
-                description.add(second == null ? mapCoverage() + unlocatedNote() + " · " + mapNote : mapNote);
+                description.add(!composed ? mapCoverage() + unlocatedNote() + " · " + mapNote : mapNote);
             }
-            if (drawnArrows == 0 && (second == null || second.drawnArrows == 0) && (hasDirectedEdges()
-                || second != null && second.hasDirectedEdges()))
+            if (networks.stream().allMatch(panel -> panel.drawnArrows == 0)
+                && networks.stream().anyMatch(PaperSvg::hasDirectedEdges))
                 description.add("关系方向 · " + direction + "（未显示箭头）");
             if (scene.synthetic) description.add("合成示例，非真实观测");
         }
@@ -612,13 +656,16 @@ final class PaperSvg {
 
     private boolean hasDirectedEdges() { return edges.stream().anyMatch(edge -> edge.link.directed); }
 
-    private Document write(XMLStreamWriter writer, StringWriter buffer, double widthMm, PaperSvg second, int gap)
+    private Document write(XMLStreamWriter writer, StringWriter buffer, double widthMm, List<Cell> cells, int columns, int gap)
             throws XMLStreamException {
         var svg = new Svg(writer);
-        int contentWidth = second == null ? width : width * 2 + gap;
-        var legend = combinedLegend(second).stream().map(key -> new Key(key.id, key.text,
+        boolean composed = !cells.isEmpty();
+        List<PaperSvg> networks = composed ? cells.stream().map(Cell::network).filter(java.util.Objects::nonNull).toList()
+            : List.of(this);
+        int contentWidth = width * columns + gap * (columns - 1);
+        var legend = combinedLegend(networks).stream().map(key -> new Key(key.id, key.text,
             appearance.display(key.color), key.size, key.line, key.arrow)).toList();
-        var caption = caption(second, contentWidth);
+        var caption = caption(networks, composed, contentWidth);
         float titleHeight = padding + fontSize * 1.9f;
         float pageWidth = contentWidth + 2 * padding;
         float step = fontSize * 1.48f;
@@ -627,12 +674,14 @@ final class PaperSvg {
         var keyLayout = layoutKeys(sample, contentWidth, legend);
         float keyHeight = keyLayout.rows == 0 ? 0 : step * keyLayout.rows + fontSize * .23f;
         boolean topLegend = scene.legendPosition.equals("top");
-        float panelTitle = second == null ? 0 : fontSize * 1.55f;
+        float panelTitle = composed ? fontSize * 1.55f : 0;
         float header = titleHeight + (topLegend ? keyHeight : 0) + panelTitle;
+        int panelRows = Math.max(1, (cells.size() + columns - 1) / columns);
+        float rowStep = height + gap + panelTitle;
         boolean customMargin = appearance.marginMm() != null;
         boolean footerContent = !caption.isEmpty() || (!topLegend && keyLayout.rows > 0);
         float footerGap = customMargin ? (footerContent ? fontSize * .96f : 0) : padding * .8f;
-        float footer = header + height + footerGap;
+        float footer = header + height + (panelRows - 1) * rowStep + footerGap;
         float legendTop = topLegend ? titleHeight : footer;
         float notesTop = footer + (topLegend ? 0 : keyHeight);
         float pageHeight = notesTop + noteStep * caption.size() + (customMargin ? padding : padding * .6f);
@@ -642,6 +691,7 @@ final class PaperSvg {
             "viewBox", "0 0 " + n(pageWidth) + " " + n(pageHeight), "font-family", appearance.cssFonts(),
             "font-size", n(fontSize));
         writer.writeDefaultNamespace(SVG_NS);
+        if (cells.stream().anyMatch(cell -> cell.image != null)) writer.writeNamespace("xlink", XLINK_NS);
         svg.start("title"); svg.text(title); svg.end();
         svg.start("desc"); svg.text(String.join("\n", caption)); svg.end();
         var state = scene.status();
@@ -650,11 +700,16 @@ final class PaperSvg {
             "node_colors", "style", "camera", "paper_legend", "years", "geography", "supply_scope")) {
             if (state.containsKey(key)) settings.put(key, state.get(key));
         }
-        settings.put("paper_options", options);
+        var paperOptions = Scene.JSON.toJsonTree(options).getAsJsonObject();
+        paperOptions.remove("composition"); // The exported image is embedded. Keep local file paths private.
+        settings.put("paper_options", paperOptions);
         settings.put("paper_appearance", appearance.metadata());
-        settings.put("paper_diagnostics", second == null ? List.of(paperDiagnostics())
-            : List.of(paperDiagnostics(), second.paperDiagnostics()));
-        if (second != null) settings.put("panels", List.of(panelMetrics(), second.panelMetrics()));
+        settings.put("paper_diagnostics", networks.stream().map(PaperSvg::paperDiagnostics).toList());
+        var panelReports = cells.stream().map(Cell::report).toList();
+        if (composed) {
+            settings.put("panels", panelReports);
+            settings.put("panel_layout", Map.of("columns", columns, "rows", panelRows));
+        }
         svg.start("metadata", "id", "network-view"); svg.text(Scene.JSON.toJson(settings)); svg.end();
         svg.start("defs");
         svg.start("clipPath", "id", "plot-clip", "clipPathUnits", "userSpaceOnUse");
@@ -664,10 +719,10 @@ final class PaperSvg {
         svg.empty("rect", "id", "page-background", "width", n(pageWidth), "height", n(pageHeight), "fill", rgb(0xffffff));
         svg.label(shorten(title, contentWidth / 1.52f), padding, padding + fontSize * 1.3f, fontSize * 1.48f,
             rgb(0x172033), "font-weight", "bold");
-        if (second == null) writeNetwork(svg, padding, header, "");
-        else {
-            writePanel(svg, "a", padding, header);
-            second.writePanel(svg, "b", padding + width + gap, header);
+        if (!composed) writeNetwork(svg, padding, header, "");
+        for (int i = 0; i < cells.size(); i++) {
+            writePanel(svg, cells.get(i), Character.toString('a' + i),
+                padding + i % columns * (width + gap), header + i / columns * rowStep);
         }
         if (keyLayout.rows > 0) drawFooterRule(svg, "legend-rule", legendTop, contentWidth);
         else if (!caption.isEmpty()) drawFooterRule(svg, "caption-rule", footer, contentWidth);
@@ -686,12 +741,12 @@ final class PaperSvg {
         var report = new LinkedHashMap<>(panelMetrics());
         report.put("workspace_id", scene.workspaceId);
         report.put("revision", scene.revision);
-        if (second != null) {
-            var secondMetrics = second.panelMetrics();
+        if (composed) {
             report.remove("year");
-            report.put("panels", List.of(panelMetrics(), secondMetrics));
+            report.put("panels", panelReports);
+            var metrics = networks.stream().map(PaperSvg::panelMetrics).toList();
             for (String key : List.of("shown_nodes", "shown_edges", "shown_arrows", "labels", "unplaced_priority_labels", "priority_labels"))
-                report.put(key, (int) report.get(key) + (int) secondMetrics.get(key));
+                report.put(key, metrics.stream().mapToInt(values -> (int) values.get(key)).sum());
         }
         return new Document(buffer.toString(), widthMm, heightMm, legend, Map.copyOf(report));
     }
@@ -709,11 +764,76 @@ final class PaperSvg {
             "map_enabled", scene.geographyEnabled, "map_eligible", mapEligible, "map_located", mapLocated);
     }
 
-    private void writePanel(Svg svg, String letter, float x, float y) throws XMLStreamException {
-        svg.start("g", "id", "panel-" + letter, "data-year", scene.activeYear);
-        svg.label("(" + letter + ") " + scene.activeYear + " 年", x, y - fontSize * .39f,
+    private String periodTitle() {
+        return scene.activeYear == 0 ? "当前网络"
+            : scene.referenceYear == 0 ? scene.activeYear + " 年" : scene.referenceYear + " → " + scene.activeYear + " 年";
+    }
+
+    private void writePanel(Svg svg, Cell cell, String letter, float x, float y) throws XMLStreamException {
+        svg.start("g", "id", "panel-" + letter, "data-panel-type", cell.spec.kind());
+        if (cell.network != null) svg.out.writeAttribute("data-year", Integer.toString(cell.network.scene.activeYear));
+        String label = cell.spec.title().isBlank() ? switch (cell.spec.type()) {
+            case NETWORK -> cell.network.periodTitle();
+            case COUNTS -> "关系数量";
+            case IMAGE -> "示意图";
+        } : cell.spec.title();
+        svg.label(shorten("(" + letter + ") " + label, width / 1.15f), x, y - fontSize * .39f,
             fontSize * 1.09f, rgb(0x172033), "font-weight", "bold");
-        writeNetwork(svg, x, y, letter + "-");
+        switch (cell.spec.type()) {
+            case NETWORK -> cell.network.writeNetwork(svg, x, y, letter + "-");
+            case COUNTS -> writeCounts(svg, cell.counts, x, y);
+            case IMAGE -> {
+                svg.start("image", "x", n(x), "y", n(y), "width", width, "height", height,
+                    "preserveAspectRatio", "xMidYMid meet");
+                svg.out.writeAttribute("xlink", XLINK_NS, "href", cell.image.data());
+                svg.end();
+            }
+        }
+        svg.end();
+    }
+
+    private void writeCounts(Svg svg, List<PaperPanelData.YearCount> counts, float x, float y) throws XMLStreamException {
+        String textInk = rgb(0x334155);
+        float size = fontSize * .84f;
+        svg.start("g", "transform", "translate(" + n(x) + " " + n(y) + ")");
+        svg.start("desc");
+        svg.text("统计符合当前筛选的关系，不受取景范围影响"
+            + (scene.geographyEnabled ? "，仅计两端均可定位的边。" : "。"));
+        svg.end();
+        long maximum = counts.stream().mapToLong(PaperPanelData.YearCount::count).max().orElse(0);
+        int ticks = (int) Math.min(4, Math.max(1, maximum));
+        long tickSize = Math.max(1, (maximum + ticks - 1) / ticks);
+        long axisMax = tickSize * ticks;
+        float left = Math.max(fontSize * 2, (measure(Long.toString(axisMax)) + fontSize * .64f) * .95f);
+        float right = width - fontSize * .36f;
+        float top = fontSize * 2;
+        float bottom = height - fontSize * 1.6f;
+        svg.label("符合筛选的关系数", 0, size, size, textInk);
+        for (int i = 0; i <= ticks; i++) {
+            float axisY = bottom - (bottom - top) * i / ticks;
+            svg.empty("line", "x1", n(left), "x2", n(right), "y1", n(axisY), "y2", n(axisY),
+                "stroke", rgb(i == 0 ? 0x92a0ae : 0xe1e6eb), "stroke-width", n(fontSize * .055f));
+            svg.label(Long.toString(tickSize * i), left - fontSize * .38f, axisY + size * .33f, size, textInk,
+                "text-anchor", "end");
+        }
+        float slot = (right - left) / counts.size();
+        float barWidth = Math.min(slot * .59f, fontSize * 5);
+        int labelInterval = Math.max(1, (int) Math.ceil((measure("2024") * .84f + fontSize * .34f) / slot));
+        for (int i = 0; i < counts.size(); i++) {
+            var item = counts.get(i);
+            float mid = left + (i + .5f) * slot;
+            float bar = (bottom - top) * item.count() / axisMax;
+            String label = item.year() == 0 ? "当前网络" : Integer.toString(item.year());
+            svg.start("rect", "x", n(mid - barWidth * .5f), "y", n(bottom - bar), "width", n(barWidth),
+                "height", n(bar), "fill", rgb(nodeInk), "data-year", item.year(), "data-count", item.count());
+            svg.start("title"); svg.text(label + " · " + item.count() + " 条"); svg.end();
+            svg.end();
+            if (i % labelInterval == 0)
+                svg.label(label, mid, bottom + size * 1.38f, size, textInk, "text-anchor", "middle");
+            String value = Long.toString(item.count());
+            if (counts.size() <= 6 && measure(value) * .84f < slot)
+                svg.label(value, mid, bottom - bar - size * .3f, size, textInk, "text-anchor", "middle");
+        }
         svg.end();
     }
 

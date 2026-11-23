@@ -54,13 +54,13 @@ final class DiagramRenderer {
     }
 
     static Projection project(Scene scene, int width, int height, boolean paper) {
-        return project(scene, width, height, paper, 0, 0);
+        return project(scene, width, height, paper, new int[0]);
     }
 
-    static Projection project(Scene scene, int width, int height, boolean paper, int leftYear, int rightYear) {
+    static Projection project(Scene scene, int width, int height, boolean paper, int[] sharedYears) {
         float unit = Math.max(.55f, height / 850f);
         boolean geographic = scene.geographyEnabled;
-        boolean classic = paper && leftYear == 0 && GraphRenderer.usesClassicRenderer(scene);
+        boolean classic = paper && sharedYears.length == 0 && GraphRenderer.usesClassicRenderer(scene);
         boolean weighted = !geographic && scene.visualStyle.equals("weighted");
         boolean curved = geographic || scene.visualStyle.equals("communities");
         boolean keywords = scene.visualStyle.equals("keywords");
@@ -71,12 +71,12 @@ final class DiagramRenderer {
         double[] ranks = new double[projection.length];
         double maxWeight = 0;
         for (Scene.Link edge : scene.edges) {
-            double value = scaleWeight(scene, edge, leftYear, rightYear);
+            double value = scaleWeight(scene, edge, sharedYears);
             if (Double.isFinite(value)) maxWeight = Math.max(maxWeight, value);
         }
         if (weighted && maxWeight > 0) {
             for (Scene.Link edge : scene.edges) {
-                double value = scaleWeight(scene, edge, leftYear, rightYear);
+                double value = scaleWeight(scene, edge, sharedYears);
                 if (!Double.isFinite(value)) continue;
                 double weight = Math.max(0, value) / maxWeight;
                 ranks[edge.source] += weight;
@@ -133,9 +133,11 @@ final class DiagramRenderer {
         return new Projection(projection, matrix, palette, leaders, unit, maxWeight, classic, weighted, curved, keywords);
     }
 
-    private static double scaleWeight(Scene scene, Scene.Link edge, int leftYear, int rightYear) {
-        if (leftYear == 0) return EdgeYears.weight(scene, edge);
-        return Math.max(edge.years.getOrDefault(leftYear, 0d), edge.years.getOrDefault(rightYear, 0d));
+    private static double scaleWeight(Scene scene, Scene.Link edge, int[] sharedYears) {
+        if (sharedYears.length == 0) return EdgeYears.weight(scene, edge);
+        double maximum = 0;
+        for (int year : sharedYears) maximum = Math.max(maximum, year == 0 ? edge.weight : edge.years.getOrDefault(year, 0d));
+        return maximum;
     }
 
     static EdgeStyle edgeStyle(Scene scene, Projection projection, Scene.Link edge, Node from, Node to) {

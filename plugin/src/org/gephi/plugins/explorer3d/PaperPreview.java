@@ -1,18 +1,30 @@
 package org.gephi.plugins.explorer3d;
 
+import java.awt.AlphaComposite;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import javax.imageio.ImageIO;
+import org.apache.batik.anim.dom.SVGOMDocument;
+import org.apache.batik.bridge.Bridge;
+import org.apache.batik.bridge.BridgeContext;
+import org.apache.batik.bridge.SVGImageElementBridge;
+import org.apache.batik.ext.awt.image.GraphicsUtil;
+import org.apache.batik.ext.awt.image.renderable.RedRable;
+import org.apache.batik.gvt.GraphicsNode;
 import org.apache.batik.transcoder.TranscoderException;
 import org.apache.batik.transcoder.TranscoderInput;
 import org.apache.batik.transcoder.TranscoderOutput;
 import org.apache.batik.transcoder.image.ImageTranscoder;
+import org.apache.batik.util.ParsedURL;
+import org.w3c.dom.Element;
 
 /** Rasterizes the complete SVG that will be delivered by the editor. */
 final class PaperPreview extends ImageTranscoder {
@@ -64,5 +76,42 @@ final class PaperPreview extends ImageTranscoder {
 
     @Override public void writeImage(BufferedImage image, TranscoderOutput output) {
         this.image = image;
+    }
+
+    @Override protected BridgeContext createBridgeContext(SVGOMDocument document) {
+        return new BridgeContext(userAgent) {
+            @Override public void registerSVGBridges() {
+                super.registerSVGBridges();
+                putBridge(new EmbeddedPngBridge());
+            }
+        };
+    }
+
+    // Gephi ships the SVG renderer without Batik's PNG codec. Decode the
+    // document's embedded panels with Java ImageIO and keep Batik's positioning.
+    private static final class EmbeddedPngBridge extends SVGImageElementBridge {
+        private static final String PNG = "data:image/png;base64,";
+
+        @Override public Bridge getInstance() { return new EmbeddedPngBridge(); }
+
+        @Override protected GraphicsNode createImageGraphicsNode(BridgeContext context, Element element, ParsedURL url) {
+            String href = element.getAttributeNS("http://www.w3.org/1999/xlink", "href");
+            if (!href.startsWith(PNG)) throw new IllegalArgumentException("预览只读取已嵌入的 PNG 示意图");
+            try (var data = new ByteArrayInputStream(Base64.getDecoder().decode(href.substring(PNG.length())))) {
+                BufferedImage illustration = ImageIO.read(data);
+                if (illustration == null) throw new IOException("内嵌 PNG 无法解码");
+                var raster = new BufferedImage(illustration.getWidth(), illustration.getHeight(), BufferedImage.TYPE_INT_ARGB_PRE);
+                var graphics = raster.createGraphics();
+                try {
+                    graphics.setComposite(AlphaComposite.Src);
+                    graphics.drawImage(illustration, 0, 0, null);
+                } finally {
+                    graphics.dispose();
+                }
+                return createRasterImageNode(context, element, new RedRable(GraphicsUtil.wrap(raster)), url);
+            } catch (IOException ex) {
+                throw new IllegalArgumentException("无法预览内嵌示意图", ex);
+            }
+        }
     }
 }

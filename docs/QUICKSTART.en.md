@@ -37,6 +37,8 @@ Use the full-page preview to set paper width and style. Select two available yea
 
 The paper preview offers color and grayscale styles, font selection, margins in millimeters, and custom emphasis colors. Grayscale year overlays show reference-only links with dashed strokes.
 
+Choose Custom Figure in the panel menu to combine two to four network, relationship-count, and PNG panels. Different network years share the same coordinates and edge-width scale. PNG panels are embedded in the SVG.
+
 For an editable vector figure, Ctrl-click nodes and choose **导出论文图（SVG）** in the 3D panel, or call `gephi3d_export_paper`. The export emphasizes the selection and its direct links, simplifies the legend, and reports links missing locations in map view.
 
 Gephi-AI can only cooperate when connected to the same Gephi instance; equal workspace IDs across processes do not identify the same graph. See [limitations and Chinese instructions](../README.md) and [development guide](DEVELOPMENT.md).

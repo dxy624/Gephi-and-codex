@@ -8,10 +8,10 @@ import java.util.Map;
 record PaperOptions(double nodeScale, double edgeScale, double arrowScale, Boolean arrows,
                     double fontPoints, double contextOpacity, Map<String, String> marks,
                     boolean automaticCaption, String caption, String weightMeaning,
-                    int leftYear, int rightYear, PaperAppearance appearance) {
+                    int leftYear, int rightYear, PaperAppearance appearance, PaperPanels composition) {
 
     static final PaperOptions DEFAULT = new PaperOptions(1, 1, 1, null, 6.8, -1, Map.of(), false, "", "", 0, 0,
-        PaperAppearance.DEFAULT);
+        PaperAppearance.DEFAULT, PaperPanels.NONE);
 
     PaperOptions {
         range(nodeScale, .25, 4, "节点倍率");
@@ -26,6 +26,8 @@ record PaperOptions(double nodeScale, double edgeScale, double arrowScale, Boole
             throw new IllegalArgumentException("图注最多 1200 字符，边权含义最多 160 字符");
         if ((leftYear != 0 || rightYear != 0) && (leftYear <= 0 || rightYear <= 0 || leftYear == rightYear))
             throw new IllegalArgumentException("请选择两个不同的年份");
+        if (leftYear != 0 && composition.enabled())
+            throw new IllegalArgumentException("双年份并排和自定义组图只能选择一种");
         marks = Collections.unmodifiableMap(new LinkedHashMap<>(marks));
     }
 
@@ -48,10 +50,10 @@ record PaperOptions(double nodeScale, double edgeScale, double arrowScale, Boole
             Engine.str(source, "weight_meaning", "").strip(),
             year(source, "left_year"), year(source, "right_year"),
             PaperAppearance.read(source.has("appearance") && !source.get("appearance").isJsonNull()
-                ? source.getAsJsonObject("appearance") : null));
+                ? source.getAsJsonObject("appearance") : null), PaperPanels.read(source));
     }
 
-    private static int year(JsonObject source, String key) {
+    static int year(JsonObject source, String key) {
         double value = Engine.num(source, key, 0);
         if (value != Math.rint(value) || value < 0 || value > 9999)
             throw new IllegalArgumentException("年份必须是 1–9999 的整数");

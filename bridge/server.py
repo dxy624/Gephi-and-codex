@@ -278,7 +278,7 @@ def gephi3d_export_paper(workspace_id: int, path: str, width_mm: float = 183,
                          title: str = '', direction: str = '',
                          width: int = 1200, height: int = 800,
                          options: dict | None = None) -> dict:
-    """Export editable paper SVG. Give left_year and right_year in options for comparable panels. Options also include marks (node ID to label), caption, automatic_caption, weight_meaning, font_points, node_scale, edge_scale, arrow_scale, arrows and context_opacity (0–1). From 0.1.12, options.appearance accepts preset (current, journal, grayscale), font (yahei, simsun, arial, times), margin_mm (2–16), key_node_color and focus_edge_color (#RRGGBB in color mode). Use a new absolute path and pause layout."""
+    """Export editable paper SVG. Give left_year and right_year in options for a two-year comparison. From 0.1.13, use options.panels for a 2–4 panel figure with panel_layout (grid or row). Each panel has a type (network, counts, image), optional title, optional network year, or an absolute PNG path for image. Include at least one network. Other options include marks, caption, automatic_caption, weight_meaning, font_points, node_scale, edge_scale, arrow_scale, arrows and context_opacity. From 0.1.12, options.appearance accepts preset (current, journal, grayscale), font (yahei, simsun, arial, times), margin_mm (2–16), key_node_color and focus_edge_color. Use a new absolute path and pause layout."""
     capabilities = client.state().get('capabilities', [])
     if 'paper_svg' not in capabilities:
         raise ToolError('The connected Gephi plugin does not support editable paper export. Install Gephi 3D Explorer 0.1.5 or later.')
@@ -309,6 +309,8 @@ def _paper_options(options: dict | None, capabilities: list[str]) -> dict:
         return {}
     if options.get('appearance') is not None and 'paper_appearance' not in capabilities:
         raise ToolError('Paper appearance options require Gephi 3D Explorer 0.1.12 or later.')
+    if options.get('panels') is not None and 'paper_composition' not in capabilities:
+        raise ToolError('Custom paper figures require Gephi 3D Explorer 0.1.13 or later.')
     return {'options': options}
 
 
