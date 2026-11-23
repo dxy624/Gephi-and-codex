@@ -29,12 +29,31 @@ import org.w3c.dom.Element;
 /** Rasterizes the complete SVG that will be delivered by the editor. */
 final class PaperPreview extends ImageTranscoder {
     private BufferedImage image;
+    private boolean print;
 
     static BufferedImage render(PaperSvg.Document document, int width) {
         if (width < 100 || width > 2400) throw new IllegalArgumentException("预览宽度须在 100–2400 像素之间");
+        return render(document, width, 0);
+    }
+
+    static BufferedImage print(PaperSvg.Document document, int dpi) {
+        int width = (int) Math.round(document.widthMm() / 25.4 * dpi);
+        int height = (int) Math.round(document.heightMm() / 25.4 * dpi);
+        if (width > 9000 || height > 12000 || (long) width * height > 42_000_000)
+            throw new IllegalArgumentException("光栅图过大，请减小版面或使用 300 dpi");
+        return render(document, width, height);
+    }
+
+    private static BufferedImage render(PaperSvg.Document document, int width, int height) {
         var preview = new PaperPreview();
+        preview.print = height > 0;
         preview.addTranscodingHint(KEY_WIDTH, (float) width);
-        preview.addTranscodingHint(KEY_MAX_HEIGHT, 3200f);
+        if (preview.print) {
+            preview.addTranscodingHint(KEY_HEIGHT, (float) height);
+            preview.addTranscodingHint(KEY_BACKGROUND_COLOR, java.awt.Color.WHITE);
+        } else {
+            preview.addTranscodingHint(KEY_MAX_HEIGHT, 3200f);
+        }
         try {
             preview.transcode(new TranscoderInput(new StringReader(document.svg())), null);
             return preview.image;
@@ -71,7 +90,7 @@ final class PaperPreview extends ImageTranscoder {
     }
 
     @Override public BufferedImage createImage(int width, int height) {
-        return new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        return new BufferedImage(width, height, print ? BufferedImage.TYPE_INT_RGB : BufferedImage.TYPE_INT_ARGB);
     }
 
     @Override public void writeImage(BufferedImage image, TranscoderOutput output) {

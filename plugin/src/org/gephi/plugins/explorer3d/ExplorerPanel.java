@@ -83,7 +83,7 @@ public final class ExplorerPanel extends TopComponent {
         button(controls,"恢复视角",()->{Scene s=engine.scene();if(s==null)return;Object n=JOptionPane.showInputDialog(this,"选择视角","视角",JOptionPane.PLAIN_MESSAGE,null,s.bookmarks.keySet().toArray(),null);if(n!=null)act("bookmark","name",n.toString(),"restore",true);});
         button(controls,"生成示例网络",()->{if(JOptionPane.showConfirmDialog(this,"在新工作区生成 60 节点示例网络？","示例网络",JOptionPane.OK_CANCEL_OPTION)==JOptionPane.OK_OPTION)act("generate");});
         button(controls,"导出 PNG",()->{JFileChooser chooser=new JFileChooser();chooser.setSelectedFile(new java.io.File("network-3d.png"));if(chooser.showSaveDialog(this)==JFileChooser.APPROVE_OPTION)act("export_png","path",chooser.getSelectedFile().getAbsolutePath());});
-        button(controls, "导出论文图（SVG）", this::exportPaper);
+        button(controls, "论文图预览与导出…", this::exportPaper);
         side.add(controls,BorderLayout.SOUTH);add(side,BorderLayout.EAST);
         status.setBorder(BorderFactory.createEmptyBorder(5,12,5,10));add(status,BorderLayout.SOUTH);
         engine.changed=this::refresh;refresh();

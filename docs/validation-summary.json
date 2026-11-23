@@ -1,7 +1,7 @@
 {
-  "release": "v0.1.13-alpha",
+  "release": "v0.1.14-alpha",
   "platform": "Windows / Gephi 0.11.4 / Java 17 / Python 3.12",
-  "bundled_module": "0.1.13",
+  "bundled_module": "0.1.14",
   "desktop_default_port": 8183,
   "live_test_port": 8184,
   "scope": [
@@ -10,7 +10,7 @@
     "upgrade from the previous published desktop module with backup",
     "directed arrow visibility, weighted arrowhead size and line width",
     "isolated runtime and project reopen",
-    "38 MCP tools",
+    "40 MCP tools",
     "synthetic graph and GEXF import",
     "Stata DTA city-code matching",
     "optional geographic mode and camera restore",
@@ -21,6 +21,7 @@
     "directed supply scope, filter diagnostics, figure presets, edge-year comparisons and SVG view metadata",
     "paper preview, editable legend, manual labels and shared scales in a two-year figure",
     "paper appearance, measured margins, grayscale PNG and SVG, matching dashed year legend",
-    "custom 2\u20134 panel figures, shared three-year scales, filtered counts, embedded PNG and grayscale preview"
+    "custom 2\u20134 panel figures, shared three-year scales, filtered counts, embedded PNG and grayscale preview",
+    "paper preflight, vector PDF with embedded searchable Chinese, 300/600 dpi TIFF, submission ZIP with plotted data and checksums"
   ]
 }

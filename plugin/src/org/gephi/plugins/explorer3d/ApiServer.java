@@ -48,15 +48,23 @@ public final class ApiServer {
                 org.gephi.project.api.Workspace previous=(org.gephi.project.api.Workspace)edt(()->{if(Engine.INSTANCE.jobState.equals("running"))throw new IllegalArgumentException("Pause layout before importing");return Engine.INSTANCE.workspace();});
                 GraphImport imported=GraphImport.read(Engine.str(request,"path",""));
                 response=Scene.JSON.toJson(edt(()->imported.commit(previous,Engine.bool(request,"synthetic",false))));
-            }else if(operation.equals("export_svg")||operation.equals("preview_paper")){
+            }else if(java.util.Set.of("export_svg", "preview_paper", "audit_paper", "export_publication").contains(operation)){
                 Scene snapshot=(Scene)edt(()->Engine.INSTANCE.paperSnapshot(Engine.integer(request,"workspace_id",-1)));
                 var document = PaperSvg.render(snapshot,
                     Engine.integer(request,"width",1200), Engine.integer(request,"height",800),
                     Engine.num(request,"width_mm",183), Engine.str(request,"title",""), Engine.str(request,"direction",""),
                     PaperOptions.read(request.getAsJsonObject("options")));
                 String file = Engine.str(request,"path","");
-                response=Scene.JSON.toJson(operation.equals("export_svg") ? document.save(file)
-                    : PaperPreview.save(document, file, Engine.integer(request, "preview_width", 1000)));
+                var result = switch (operation) {
+                    case "export_svg" -> document.save(file);
+                    case "preview_paper" -> PaperPreview.save(document, file, Engine.integer(request, "preview_width", 1000));
+                    case "export_publication" -> PaperPublication.save(document, file, Engine.integer(request, "dpi", 600),
+                        Engine.num(request, "minimum_font_pt", 5));
+                    default -> java.util.Map.of("success", true, "audit",
+                        PaperPublication.inspect(document, Engine.num(request, "minimum_font_pt", 5)),
+                        "width_mm", document.widthMm(), "height_mm", document.heightMm());
+                };
+                response=Scene.JSON.toJson(result);
             }else if(operation.equals("save_project")){
                 org.gephi.project.api.Workspace w=(org.gephi.project.api.Workspace)edt(()->{Engine e=Engine.INSTANCE;if(e.workspace()==null||e.workspace().getId()!=Engine.integer(request,"workspace_id",-1))throw new IllegalArgumentException("Workspace changed");if(e.jobState.equals("running"))throw new IllegalArgumentException("Pause layout before saving");return e.workspace();});
                 Path destination=Path.of(Engine.str(request,"path",""));if(!destination.isAbsolute()||!destination.toString().endsWith(".gephi")||Files.exists(destination))throw new IllegalArgumentException("New absolute .gephi path required");

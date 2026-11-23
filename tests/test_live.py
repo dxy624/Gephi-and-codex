@@ -136,10 +136,10 @@ async def check_mcp(client,tmp_path):
     params=StdioServerParameters(command=sys.executable,args=['-X','utf8',str(ROOT/'bridge/server.py')],env=dict(os.environ,GEPHI3D_URL=client.url,GEPHI3D_TOKEN_FILE=str(client.token_file)))
     async with stdio_client(params) as (reader,writer):
         async with ClientSession(reader,writer) as session:
-            await session.initialize();listed=await session.list_tools();assert len(listed.tools)==38
+            await session.initialize();listed=await session.list_tools();assert len(listed.tools)==40
             assert {'gephi3d_import_graph', 'gephi3d_auto_draw', 'gephi3d_geography', 'gephi3d_supply_chain_map', 'gephi3d_export_paper',
                     'gephi3d_layer_visibility', 'gephi3d_node_colors', 'gephi3d_paper_legend', 'gephi3d_supply_scope',
-                    'gephi3d_clear_scope_block', 'gephi3d_figure_preset', 'gephi3d_years'} <= {
+                    'gephi3d_clear_scope_block', 'gephi3d_figure_preset', 'gephi3d_years', 'gephi3d_audit_paper', 'gephi3d_export_submission'} <= {
                 tool.name for tool in listed.tools
             }
             result=await session.call_tool('gephi3d_status',{});assert not result.is_error
@@ -151,6 +151,11 @@ async def check_mcp(client,tmp_path):
             with Image.open(output) as image:
                 assert image.size==(6000,4000) and len(image.resize((120,80)).getcolors(9600))>10
             assert output.with_suffix('.pdf').read_bytes().startswith(b'%PDF-') and Path(str(output)+'.scene.json').is_file()
+            audit = await session.call_tool('gephi3d_audit_paper', {'workspace_id': w, 'width_mm': 85})
+            assert not audit.is_error and 'audit' in json.loads(audit.content[0].text), audit
+            publication = tmp_path / '投稿图.pdf'
+            result = await session.call_tool('gephi3d_export_submission', {'workspace_id': w, 'path': str(publication), 'width_mm': 85})
+            assert not result.is_error and publication.read_bytes().startswith(b'%PDF-'), result
             imported = await check_api_import(session,client,tmp_path,w)
             await check_supply_chain_map(session, client, tmp_path)
             await check_supply_years(session, tmp_path)

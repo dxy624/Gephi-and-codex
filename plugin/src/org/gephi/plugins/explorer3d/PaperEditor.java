@@ -38,7 +38,10 @@ final class PaperEditor extends JDialog {
     private final JLabel image = new JLabel("", SwingConstants.CENTER);
     private final JScrollPane viewport = new JScrollPane(image);
     private final JLabel info = new JLabel("正在准备预览…");
-    private final JButton save = new JButton("保存 SVG…"), legend = new JButton("编辑图例…");
+    private final JButton save = new JButton("投稿导出…"), legend = new JButton("编辑图例…");
+    private final JButton audit = new JButton("成稿检查…");
+    private final JComboBox<String> format = new JComboBox<>(new String[]{"投稿包 ZIP", "可编辑 SVG", "矢量 PDF", "TIFF"});
+    private final JComboBox<String> printDpi = new JComboBox<>(new String[]{"600 dpi", "300 dpi"});
     private final JButton annotate = new JButton("重点标注…");
     private final JButton arrange = new JButton("编排子图…");
     private final Timer timer = new Timer(250, event -> buildPreview());
@@ -47,7 +50,7 @@ final class PaperEditor extends JDialog {
     private PaperPanels composition;
     private PaperSvg.Document document;
     private int generation;
-    private boolean rendering, saving;
+    private boolean rendering, saving, checking;
 
     static void open(ExplorerPanel panel, Scene draft) {
         var editor = new PaperEditor(panel, draft);
@@ -139,7 +142,12 @@ final class PaperEditor extends JDialog {
         preview.add(viewport, BorderLayout.CENTER);
         var footer = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.RIGHT));
         footer.add(action("关闭", this::dispose));
+        footer.add(audit);
+        footer.add(format);
+        footer.add(printDpi);
         footer.add(save);
+        format.addActionListener(event -> printDpi.setEnabled(format.getSelectedIndex() == 0 || format.getSelectedIndex() == 3));
+        audit.addActionListener(event -> inspectFigure());
         var content = new JPanel(new BorderLayout(9, 9));
         content.setBorder(BorderFactory.createEmptyBorder(10, 10, 6, 10));
         content.add(controls, BorderLayout.WEST);
@@ -220,6 +228,7 @@ final class PaperEditor extends JDialog {
         generation++;
         document = null;
         save.setEnabled(false);
+        audit.setEnabled(false);
         legend.setEnabled(false);
         info.setText("正在更新预览…");
         timer.restart();
@@ -270,6 +279,7 @@ final class PaperEditor extends JDialog {
                     info.setText(String.format(Locale.ROOT, "%.1f × %.1f mm · 未排入的重点标签 %s",
                         document.widthMm(), document.heightMm(), document.metrics().get("unplaced_priority_labels")));
                     legend.setEnabled(true);
+                    audit.setEnabled(!checking);
                     save.setEnabled(!saving);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
@@ -284,24 +294,31 @@ final class PaperEditor extends JDialog {
     private void save() {
         if (document == null || saving) return;
         PaperSvg.Document ready = document;
+        String extension = java.util.List.of("zip", "svg", "pdf", "tiff").get(format.getSelectedIndex());
+        int dpi = printDpi.getSelectedIndex() == 0 ? 600 : 300;
         var chooser = new JFileChooser();
-        chooser.setDialogTitle("保存可编辑的论文图");
-        chooser.setFileFilter(new FileNameExtensionFilter("SVG 矢量图", "svg"));
-        chooser.setSelectedFile(new java.io.File("network-paper.svg"));
+        chooser.setDialogTitle("保存论文图");
+        chooser.setFileFilter(new FileNameExtensionFilter((String) format.getSelectedItem(), extension));
+        chooser.setSelectedFile(new java.io.File("network-paper." + extension));
         if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
         String file = chooser.getSelectedFile().getAbsolutePath();
-        String path = file.toLowerCase(Locale.ROOT).endsWith(".svg") ? file : file + ".svg";
+        String path = file.toLowerCase(Locale.ROOT).endsWith("." + extension) ? file
+            : file.replaceFirst("(?i)\\.(svg|pdf|tiff?|zip)$", "") + "." + extension;
         saving = true;
         save.setEnabled(false);
         new SwingWorker<Map<String, Object>, Void>() {
-            @Override protected Map<String, Object> doInBackground() { return ready.save(path); }
+            @Override protected Map<String, Object> doInBackground() { return PaperPublication.save(ready, path, dpi, 5); }
             @Override protected void done() {
                 saving = false;
                 save.setEnabled(document != null);
                 try {
-                    get();
-                    panel.status.setText("已导出 SVG " + path);
-                    JOptionPane.showMessageDialog(PaperEditor.this, "已保存\n" + path, "论文图", JOptionPane.INFORMATION_MESSAGE);
+                    var result = get();
+                    var report = (PaperAudit.Report) result.get("audit");
+                    panel.status.setText("已导出 " + path);
+                    String labelNote = result.get("outlined_labels") instanceof Number count && count.intValue() > 0
+                        ? "\nPDF 字形转为轮廓 " + count + " 处" : "";
+                    JOptionPane.showMessageDialog(PaperEditor.this, "已保存\n" + path + "\n" + auditSummary(report) + labelNote,
+                        "论文图", JOptionPane.INFORMATION_MESSAGE);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
                 } catch (ExecutionException ex) {
@@ -309,6 +326,45 @@ final class PaperEditor extends JDialog {
                 }
             }
         }.execute();
+    }
+
+    private void inspectFigure() {
+        if (document == null || checking) return;
+        var ready = document;
+        checking = true;
+        audit.setEnabled(false);
+        new SwingWorker<PaperAudit.Report, Void>() {
+            @Override protected PaperAudit.Report doInBackground() { return PaperPublication.inspect(ready, 5); }
+            @Override protected void done() {
+                checking = false;
+                audit.setEnabled(document != null);
+                if (!isDisplayable() || document != ready) return;
+                try {
+                    var report = get();
+                    var details = new StringBuilder(auditSummary(report));
+                    for (var issue : report.issues()) {
+                        details.append('\n').append(issue.severity().equals("FAIL") ? "需修正 " : "需复核 ");
+                        if (!issue.panel().isBlank()) details.append('(').append(issue.panel()).append(") ");
+                        details.append(issue.detail());
+                    }
+                    var text = new JTextArea(details.toString(), Math.min(16, Math.max(3, report.issues().size() + 2)), 48);
+                    text.setEditable(false);
+                    text.setLineWrap(true);
+                    text.setWrapStyleWord(true);
+                    text.setCaretPosition(0);
+                    JOptionPane.showMessageDialog(PaperEditor.this, new JScrollPane(text), "成稿检查", JOptionPane.PLAIN_MESSAGE);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                } catch (ExecutionException ex) {
+                    JOptionPane.showMessageDialog(PaperEditor.this, ex.getCause().getMessage(), "检查失败", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }.execute();
+    }
+
+    private static String auditSummary(PaperAudit.Report report) {
+        return report.errors() == 0 && report.warnings() == 0 ? "成稿检查通过"
+            : "成稿检查 · 需修正 " + report.errors() + " 项，需复核 " + report.warnings() + " 项";
     }
 
     private static JSpinner multiplier() {

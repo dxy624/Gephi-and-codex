@@ -315,6 +315,31 @@ def _paper_options(options: dict | None, capabilities: list[str]) -> dict:
 
 
 @gephi_tool()
+def gephi3d_audit_paper(workspace_id: int, width_mm: float = 183, title: str = '', direction: str = '',
+                        width: int = 1200, height: int = 800, minimum_font_pt: float = 5,
+                        options: dict | None = None) -> dict:
+    """Check the composed figure at its physical size for font size, clipping, label overlaps and panel alignment. Uses the same options as paper SVG export. Requires 0.1.14+."""
+    capabilities = client.state().get('capabilities', [])
+    if 'paper_publication' not in capabilities:
+        raise ToolError('Paper preflight requires Gephi 3D Explorer 0.1.14 or later.')
+    return client.command('audit_paper', workspace_id, width_mm=width_mm, title=title, direction=direction,
+                          width=width, height=height, minimum_font_pt=minimum_font_pt, **_paper_options(options, capabilities))
+
+
+@gephi_tool()
+def gephi3d_export_submission(workspace_id: int, path: str, width_mm: float = 183, title: str = '',
+                               direction: str = '', width: int = 1200, height: int = 800, dpi: int = 600,
+                               minimum_font_pt: float = 5, options: dict | None = None) -> dict:
+    """Save to a new absolute .svg, .pdf, .tiff or .zip path. ZIP contains the figure in all three formats, plotted node/edge/count tables, settings and the preflight report. TIFF uses 300 or 600 dpi. This is a local export. Requires 0.1.14+."""
+    capabilities = client.state().get('capabilities', [])
+    if 'paper_publication' not in capabilities:
+        raise ToolError('Submission export requires Gephi 3D Explorer 0.1.14 or later.')
+    return client.command('export_publication', workspace_id, path=path, width_mm=width_mm, title=title, direction=direction,
+                          width=width, height=height, dpi=dpi, minimum_font_pt=minimum_font_pt,
+                          **_paper_options(options, capabilities))
+
+
+@gephi_tool()
 def gephi3d_save_project(workspace_id: int, path: str) -> dict:
     """Save the current project, including per-workspace 3D scenes, to a new absolute .gephi path. Pause layout first."""
     return client.command('save_project', workspace_id, path=path)

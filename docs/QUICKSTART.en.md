@@ -21,7 +21,7 @@ Ask Codex: “Use gephi-3d to generate a synthetic network of 60 nodes in 3 comm
 
 The skill defaults to plugin API calls and does not use desktop control unless you explicitly request interface operation. Connection or authentication failures are reported, not worked around with mouse or keyboard automation. To inspect rendering, Codex exports a preview through the plugin.
 
-Use `gephi3d_auto_draw` for a two-sheet Excel workbook, a static GEXF file or a synthetic example. It imports or generates the graph, runs the layout, styles it by community, weight and direction, and opens the 3D panel. Local GEXF import preserves graph attributes and supplied XYZ. Limits: 20 MB of GEXF, 10,000 nodes and 100,000 edges. Reload Codex after updating to discover all 38 tools.
+Use `gephi3d_auto_draw` for a two-sheet Excel workbook, a static GEXF file or a synthetic example. It imports or generates the graph, runs the layout, styles it by community, weight and direction, and opens the 3D panel. Local GEXF import preserves graph attributes and supplied XYZ. Limits: 20 MB of GEXF, 10,000 nodes and 100,000 edges. Reload Codex after updating to discover all 40 tools.
 
 For an optional supply-chain map, use `gephi3d_supply_chain_map` with a local Stata DTA, CSV or GEXF dataset, a city-code lookup CSV, a matching local GeoJSON basemap, and chain leader IDs. The map starts off and can be enabled per workspace with the map checkbox in the 3D panel. The [examples](../examples/README.md) list the input columns. Provide your own basemap and data.
 
@@ -39,6 +39,6 @@ The paper preview offers color and grayscale styles, font selection, margins in 
 
 Choose Custom Figure in the panel menu to combine two to four network, relationship-count, and PNG panels. Different network years share the same coordinates and edge-width scale. PNG panels are embedded in the SVG.
 
-For an editable vector figure, Ctrl-click nodes and choose **导出论文图（SVG）** in the 3D panel, or call `gephi3d_export_paper`. The export emphasizes the selection and its direct links, simplifies the legend, and reports links missing locations in map view.
+For an editable vector figure, Ctrl-click nodes and choose **论文图预览与导出** in the 3D panel, or call `gephi3d_export_paper`. The export emphasizes the selection and its direct links, simplifies the legend, and reports links missing locations in map view. In the preview footer, run **成稿检查** (preflight), then choose SVG, vector PDF, 300/600 dpi TIFF, or a submission ZIP. The ZIP includes rendered figures, plotted data, settings, and the preflight report. Retain your original data and Gephi project if you need to recompute the figure from source.
 
 Gephi-AI can only cooperate when connected to the same Gephi instance; equal workspace IDs across processes do not identify the same graph. See [limitations and Chinese instructions](../README.md) and [development guide](DEVELOPMENT.md).

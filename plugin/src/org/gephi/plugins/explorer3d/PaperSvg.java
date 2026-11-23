@@ -689,7 +689,7 @@ final class PaperSvg {
         writer.writeStartDocument("UTF-8", "1.0");
         svg.start("svg", "width", n(widthMm) + "mm", "height", n(heightMm) + "mm",
             "viewBox", "0 0 " + n(pageWidth) + " " + n(pageHeight), "font-family", appearance.cssFonts(),
-            "font-size", n(fontSize));
+            "font-size", n(fontSize), "data-year", scene.activeYear);
         writer.writeDefaultNamespace(SVG_NS);
         if (cells.stream().anyMatch(cell -> cell.image != null)) writer.writeNamespace("xlink", XLINK_NS);
         svg.start("title"); svg.text(title); svg.end();
@@ -770,7 +770,8 @@ final class PaperSvg {
     }
 
     private void writePanel(Svg svg, Cell cell, String letter, float x, float y) throws XMLStreamException {
-        svg.start("g", "id", "panel-" + letter, "data-panel-type", cell.spec.kind());
+        svg.start("g", "id", "panel-" + letter, "data-panel-type", cell.spec.kind(), "data-panel-box",
+            n(x) + " " + n(y) + " " + width + " " + height);
         if (cell.network != null) svg.out.writeAttribute("data-year", Integer.toString(cell.network.scene.activeYear));
         String label = cell.spec.title().isBlank() ? switch (cell.spec.type()) {
             case NETWORK -> cell.network.periodTitle();

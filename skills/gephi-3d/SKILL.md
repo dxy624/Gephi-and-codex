@@ -44,9 +44,10 @@ description: 通过 Gephi 3D Explorer 从 Excel、CSV、Stata 或 GEXF 绘制三
 - 优先使用用户指定的输出目录；目录不可写时明确报告，不声称保存成功、不静默换位置、不用界面绕过权限。
 - 导出前等待布局完成并保存视角。PNG 默认 6000×4000，可附含栅格图和中文说明的 PDF；需要新的绝对文件名，不能覆盖现有文件，PNG 同时写出 `.scene.json`。
 - save_project 保存完整 `.gephi` 工程及各工作区场景；save_scene 输出独立 JSON，当前无 JSON 导回接口。检查返回路径和文件结果。
-- 论文图用 `gephi3d_export_paper` 或自动绘图的 `svg_path`。Gephi 面板的「导出论文图（SVG）」会先打开整页预览。0.1.9+ 可用 `gephi3d_preview_paper` 生成与 SVG 同排版的预览 PNG。选用 `options.marks` 标注重点节点，`options.caption` 添加自定义图注，`options.weight_meaning` 指明边权含义；同时传 `options.left_year` 和 `options.right_year` 即可导出共用视角、坐标、配色和线宽标尺的并排组图。旧工程没有年度关系数据时，重新导入原始关系表。
+- 论文图用 `gephi3d_export_paper` 或自动绘图的 `svg_path`。Gephi 三维面板的「论文图预览与导出」会先打开整页预览。0.1.9+ 可用 `gephi3d_preview_paper` 生成与 SVG 同排版的预览 PNG。选用 `options.marks` 标注重点节点，`options.caption` 添加自定义图注，`options.weight_meaning` 指明边权含义，同时传 `options.left_year` 和 `options.right_year` 即可导出共用视角、坐标、配色和线宽标尺的并排组图。旧工程没有年度关系数据时，重新导入原始关系表。
 - 0.1.12+ 在论文图预览的「论文样式」可选「沿用当前」「论文浅色」「黑白打印」，并设置字体、毫米页边距和两种强调色。通过接口时检查 `paper_appearance`，将 `preset`、`font`、`margin_mm`、`key_node_color` 和 `focus_edge_color` 放在 `options.appearance`。黑白打印采用灰度，叠加年度对比的基准年独有边用虚线。
 - 0.1.13+ 在论文图预览的「子图」选「自定义组图」，用「编排子图」配置 2–4 幅子图。可组合网络、关系数量统计和本地 PNG 示意图。接口检查 `paper_composition`，在 `options.panels` 按顺序填写 `type`（`network`、`counts`、`image`）、可选 `title` 和网络 `year`，示意图提供绝对 `path`。至少包含一幅网络图。`options.panel_layout` 为 `grid`（两列）或 `row`（横排）。统计沿用当前筛选，优先统计所选网络年份，且不随取景裁切变化。
+- 0.1.14+ 在论文图预览下方点「成稿检查」核对实际字号、裁切、重叠和子图对齐。用「投稿导出」选择可编辑 SVG、矢量 PDF、300/600 dpi TIFF 或投稿包 ZIP。通过接口时检查 `paper_publication`，用 `gephi3d_audit_paper` 审查并用 `gephi3d_export_submission` 保存。ZIP 含独立 SVG、PDF、TIFF、各子图实际绘制的节点/边/统计表、出图设置、检查结果及校验文件。
 
 ## 连接恢复
 
